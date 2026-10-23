@@ -559,17 +559,19 @@ const xrefId = pickXref(getXrefDoc(), world.x, world.y);
         pickWorld([id], { x: world.x, y: world.y, z: 0 }, null, false, event.shiftKey);
         return;
       }
-      pickWorld([], { x: world.x, y: world.y, z: 0 }, null, false, event.shiftKey);
       const current = projectRef.current;
+      let surfaceKey: string | null = null;
       for (let i = current.state.surfaces.length - 1; i >= 0; i--) {
         const surface = current.state.surfaces[i];
         if (!surface.visible) continue;
         const z = elevationAt(surface.points, surface.triangles, world.x, world.y, bvhFor(surface.points, surface.triangles));
         if (z !== null) {
           current.setActive(surface.id);
+          surfaceKey = `surface:${surface.id}`;
           break;
         }
       }
+      pickWorld(surfaceKey ? [surfaceKey] : [], { x: world.x, y: world.y, z: 0 }, null, false, event.shiftKey);
     };
     const onWheel = (event: WheelEvent) => {
       if (event.target !== canvas) return;

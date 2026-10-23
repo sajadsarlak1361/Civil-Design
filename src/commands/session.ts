@@ -167,7 +167,7 @@ export interface SessionResult {
 export const SESSION_COMMANDS = new Set<string>([
   'LINE', 'PLINE', 'CIRCLE', 'ARC', 'RECTANG', 'POLYGON', 'POINT', 'TEXT', 'MTEXT',
   'MOVE', 'COPY', 'ROTATE', 'SCALE', 'MIRROR', 'OFFSET', 'TRIM', 'EXTEND', 'FILLET', 'CHAMFER',
-  'ERASE', 'EXPLODE', 'JOIN', 'STRETCH', 'LIST', 'DIST', 'ID', 'AREA', 'PROPERTIES',
+  'ERASE', 'EXPLODE', 'JOIN', 'STRETCH', 'LIST', 'DIST', 'ID', 'AREA',
   'ZOOM', 'PAN', '-PAN', 'LAYER', '-LAYER', 'LINETYPE', '-LINETYPE', 'LTSCALE', 'COLOR', 'CHPROP', '-CHPROP', 'MATCHPROP',
   'LOCKOBJECT', 'UNLOCKOBJECT',
   'LAYISO', 'LAYOFF', 'LAYFRZ', 'LAYLCK', 'LAYULK', 'LAYMCUR', 'LAYCUR', 'LAYMCH', 'LAYMRG', 'LAYDEL',
@@ -441,7 +441,6 @@ function dispatch(session: Session, model: DrawingModel, settings: CadSettings, 
     case 'EXPLODE':
     case 'JOIN':
     case 'LIST':
-    case 'PROPERTIES':
       return modify(session, model, settings, input);
     case 'OFFSET':
       return offset(session, model, settings, input);

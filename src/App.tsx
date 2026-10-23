@@ -13,7 +13,7 @@ import { heavyBinary, heavyText, readDemOffThread, readDxfOffThread, readGeoTiff
 import { poolAvailable, resizePool } from './engine/pool';
 import { subscribeTasks, taskSnapshot, tasks } from './engine/tasks';
 import type { TaskHandle } from './engine/tasks';
-import { bindHost, getCommandSnapshot, getDrawingModel, importDrawing, importDxf, importDwgModel, installDrawingHistory, postMessage, reportLine, subscribeCommandUi, subscribeDrawing, syncToolPrompt } from './commands/runtime';
+import { bindHost, getCommandSnapshot, getDrawingModel, importDrawing, importDxf, importDwgModel, installDrawingHistory, postMessage, reportLine, runCommand, subscribeCommandUi, subscribeDrawing, syncToolPrompt } from './commands/runtime';
 import { openDwg, saveDwg } from './engine/formats/dwgEngine';
 import { DwgSettingsDialog } from './components/DwgSettingsDialog';
 import { CommandLine } from './components/CommandLine';
@@ -969,19 +969,19 @@ function Shell() {
           )}
           {!rightDock && !clean && (
             <div className="dock-strips right">
-              <button type="button" className="dock-strip" onClick={() => patchChrome({ properties: true })}>Properties</button>
+              <button type="button" className="dock-strip" onClick={() => runCommand('PROPERTIES')}>Properties</button>
             </div>
           )}
         </main>
         {rightDock && (
-          <div className="dock-stack right" onMouseLeave={() => { if (!rightPin) patchChrome({ properties: false }); }}>
+          <div className="dock-stack right" onMouseLeave={() => { if (!rightPin && !commandSnap.propertiesOpen) patchChrome({ properties: false }); }}>
             <div className="dock-head">
               <strong>Properties</strong>
               <button type="button" onClick={() => setRightPin((pin) => !pin)}>{rightPin ? 'Pinned' : 'Auto-hide'}</button>
               <button type="button" aria-label="Close properties" onClick={() => patchChrome({ properties: false })}>×</button>
             </div>
             <button type="button" className="dock-resize left" aria-label="Resize properties" onPointerDown={(event) => dragWidth(rightWidth, event, -1, setRightWidth)} />
-            {commandSnap.propertiesOpen && <PropertiesPalette />}
+            {(commandSnap.propertiesOpen || inspectorOpen) && <PropertiesPalette />}
             {inspectorOpen && <Inspector />}
           </div>
         )}

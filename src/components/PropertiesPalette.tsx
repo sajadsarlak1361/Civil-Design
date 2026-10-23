@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { useSyncExternalStore } from 'react';
 import {
   armPoint,
@@ -20,7 +20,7 @@ import { LINETYPES } from '../engine/linetypes';
 import { LINEWEIGHT_VALUES, lineweightLabel, LINEWEIGHT_BYLAYER, LINEWEIGHT_BYBLOCK, LINEWEIGHT_DEFAULT } from '../engine/lineweights';
 import {
   commonValue,
-  fieldsFor,
+  fieldsForSelection,
   readProp,
   selectByQuery,
   targetOf,
@@ -45,24 +45,25 @@ export function PropertiesPalette() {
   void version;
 
   const ids = doc.selection.filter((id) => targetOf(doc, id));
+  const selectionKey = ids.join('\0');
+  useEffect(() => {
+    setVertex(0);
+  }, [selectionKey]);
   const kinds = useMemo(() => {
     const counts = new Map<string, number>();
     for (const id of ids) {
       const target = targetOf(doc, id);
       if (!target) continue;
-      const name = 'type' in target ? target.type : target.kind;
+      const name = readProp(doc, id, 'type');
       counts.set(name, (counts.get(name) ?? 0) + 1);
     }
     return counts;
   }, [doc, ids]);
-  const shown = ids.filter((id) => {
-    if (kind === '*') return true;
-    const target = targetOf(doc, id);
-    if (!target) return false;
-    return ('type' in target ? target.type : target.kind) === kind;
-  });
-  const first = shown[0] ? targetOf(doc, shown[0]) : null;
-  const fields = first ? fieldsFor(first) : [];
+  const activeKind = kind !== '*' && kinds.has(kind) ? kind : '*';
+  const shown = ids.filter((id) => activeKind === '*' || readProp(doc, id, 'type') === activeKind);
+  const targets = shown.map((id) => targetOf(doc, id)).filter((target) => target !== null);
+  const first = targets[0] ?? null;
+  const fields = fieldsForSelection(targets);
   const categories = ['general', 'geometry', 'misc'] as const;
 
   const commit = (key: string, value: string) => {
@@ -91,8 +92,8 @@ export function PropertiesPalette() {
         <button type="button" onClick={() => closeProperties()} aria-label="Close properties">×</button>
       </header>
       <div className="prop-tools">
-        <select value={kind} onChange={(event) => setKind(event.target.value)} aria-label="Object type">
-          <option value="*">All ({ids.length})</option>
+        <select value={activeKind} onChange={(event) => setKind(event.target.value)} aria-label="Object type">
+          <option value="*">{ids.length === 0 ? 'No selection' : `All (${ids.length})`}</option>
           {[...kinds.entries()].map(([name, count]) => (
             <option key={name} value={name}>{name} ({count})</option>
           ))}
@@ -101,7 +102,8 @@ export function PropertiesPalette() {
         <button type="button" title="Select objects" onClick={() => beginPropertyPick()}>{snapshot.picking ? 'Picking…' : 'Select'}</button>
         <button type="button" title="PICKADD" className={snapshot.pickadd ? 'on' : ''} onClick={() => togglePickadd()}>PICKADD</button>
       </div>
-      {shown.length === 0 && <p className="prop-empty">No objects selected.</p>}
+      {shown.length === 0 && <p className="prop-empty">No selection</p>}
+      {shown.length > 1 && activeKind === '*' && kinds.size > 1 && <p className="prop-empty">Shared properties. Differing values show *VARIES*.</p>}
       {categories.map((category) => {
         const rows = fields.filter((field) => field.category === category);
         if (rows.length === 0) return null;
@@ -175,7 +177,7 @@ function PropertyRow({
 }) {
   const varies = value === VARIES;
   return (
-    <label className="prop-row">
+    <label className="prop-row" data-prop={field.key}>
       <span>{field.label}</span>
       {field.key === 'vertex' ? (
         <span className="vertex-spin">

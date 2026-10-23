@@ -175,7 +175,7 @@ Default civil layers, created with the drawing, include `C-TOPO`, `C-ROAD`, `C-C
 
 `LOCKOBJECT` and `UNLOCKOBJECT` lock one object. A locked object is not cut, moved, or otherwise edited. `COLOR` and `CHPROP` set color. Bylayer uses the layer color.
 
-The Properties palette (`PROPERTIES`, Ctrl+1) groups General, Geometry, and Misc. General fields include color, layer, linetype, linetype scale, plot style, lineweight, transparency, hyperlink, thickness, and locked. Geometry depends on the entity: a line has start, end, delta, length, and angle; a polyline has vertex, bulge, widths, elevation, and area; a circle has center, radius, and diameter. `QUICKPROPERTIES` toggles the hover panel. `MATCHPROP` copies properties from one object to the next.
+The Properties palette (`PROPERTIES`, Ctrl+1) groups General, Geometry, and Misc. It lists the type, layer, color, and geometry of the current selection, and it updates when the selection changes. An empty selection says No selection. One object shows that object's values. Several objects of one type show the same rows, with `*VARIES*` where a value differs. A mix of types shows the rows they share. General fields include color, layer, linetype, linetype scale, plot style, lineweight, transparency, hyperlink, thickness, and locked. Geometry depends on the entity: a line has start, end, delta, length, and angle; a polyline has vertex, bulge, widths, elevation, and area; a circle has center, radius, and diameter. `QUICKPROPERTIES` toggles the hover panel. `MATCHPROP` copies properties from one object to the next.
 
 ## Command line
 

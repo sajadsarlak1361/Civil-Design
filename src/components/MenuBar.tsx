@@ -221,7 +221,7 @@ export function MenuBar() {
           <Item label="Grid" checked={ws.showGrid} onClick={() => go(() => toggleChrome('showGrid'))} />
         </Sub>
         <Sub label="Toolbars">
-          <Item label="Properties" checked={ws.properties} onClick={() => go(() => toggleChrome('properties'))} />
+          <Item label="Properties" checked={ws.properties} onClick={() => go(() => runCommand(ws.properties ? 'PROPERTIESCLOSE' : 'PROPERTIES'))} />
           <Item label="Layers" checked={ws.layers} onClick={() => go(() => toggleChrome('layers'))} />
           <Item label="External References" checked={ws.xrefs} onClick={() => go(() => toggleChrome('xrefs'))} />
           <Item label="Tool Palettes" checked={ws.toolPalettes} onClick={() => go(() => toggleChrome('toolPalettes'))} />

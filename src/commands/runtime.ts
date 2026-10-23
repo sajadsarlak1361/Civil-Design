@@ -934,11 +934,13 @@ function immediate(command: string, options?: { mode?: 'layout' | 'tangents' | '
       return;
     case 'PROPERTIES':
       propertiesOpen = true;
+      patchChrome({ properties: true });
       say('Properties palette.', 'message');
       return;
     case 'PROPERTIESCLOSE':
       propertiesOpen = false;
       vertexMarker = null;
+      patchChrome({ properties: false });
       publishView();
       return;
     case 'QUICKPROPERTIES':
@@ -1671,6 +1673,7 @@ export function closeProperties(): void {
   propertiesOpen = false;
   vertexMarker = null;
   picking = false;
+  patchChrome({ properties: false });
   publishUi();
   publishView();
 }
