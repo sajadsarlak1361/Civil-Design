@@ -48,7 +48,7 @@ The shell is a menu bar, a ribbon, the drawing, a command line, and palettes. Co
 | Viewports | Named viewports (`VPORTS`). New layouts of 1, 2, 3, or 4 tiled model viewports. Join can return to a single viewport or merge another viewport into the active one. |
 | Named Views | `VIEW`. Save and restore a camera. |
 | 3D Views | Top, bottom, left, right, front, back, and the four isometric corners (SW, SE, NE, NW). Plan View → Current UCS runs `PLAN`. Plan View → World is the top preset. |
-| ViewCube, Navigation Bar | `VIEWCUBE`, `NAVBARDISPLAY`. |
+| ViewCube, Navigation Bar | `VIEWCUBE`, `NAVBARDISPLAY`. The navigation bar (zoom in, zoom out, and pan arrows) sits on the drawing. The wheel zooms, and the middle button pans. |
 | Visual Styles | 2D Wireframe, Wireframe, Hidden, Realistic, Conceptual, Shaded, Shaded with Edges, X-Ray, and Elevation. Visual Styles Manager is `VSCURRENT`. |
 | Render | `RENDER`. Sets the realistic visual style and saves a PNG of the view. |
 | Display | UCS icon on, off, or at the origin. Text window (F2). Lineweights (`LWDISPLAY`). Grid. |

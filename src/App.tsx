@@ -25,6 +25,7 @@ import { CommandPanel } from './components/CommandPanel';
 import { ImportDialog } from './components/ImportDialog';
 import { Inspector } from './components/Inspector';
 import { Legend } from './components/Legend';
+import { NavBar } from './components/NavBar';
 import { NavCursor, NavMenu } from './components/NavMenu';
 import { PlanCanvas } from './components/PlanCanvas';
 import { ProfileCanvas } from './components/ProfileCanvas';
@@ -884,6 +885,7 @@ function Shell() {
           )}
           <section className={`pane pane-plan${showPlan ? '' : ' is-inactive'}`} inert={showPlan ? undefined : true}>
               <PlanCanvas active={showPlan} />
+              {ws.navBar && <NavBar />}
               <Legend />
               {project.state.sampleBanner && (
                 <div className="banner">
@@ -943,9 +945,11 @@ function Shell() {
             </section>
           <section className={`pane pane-profile${showProfile ? '' : ' is-inactive'}`} inert={showProfile ? undefined : true}>
               <ProfileCanvas active={showProfile} />
+              {ws.navBar && <NavBar />}
             </section>
           <section className={`pane pane-section${showSection ? '' : ' is-inactive'}`} inert={showSection ? undefined : true}>
               <SectionCanvas active={showSection} />
+              {ws.navBar && <NavBar />}
             </section>
           {project.state.command && <CommandPanel />}
           {project.state.booting && <div className="empty">Building sample terrain…</div>}

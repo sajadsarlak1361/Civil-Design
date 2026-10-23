@@ -179,7 +179,7 @@ function fresh(): WorkspaceState {
     orbitMode: 'constrained',
     locomotion: 'none',
     viewCube: true,
-    navBar: false,
+    navBar: true,
     cleanScreen: false,
     commandLine: true,
     ucsIcon: true,

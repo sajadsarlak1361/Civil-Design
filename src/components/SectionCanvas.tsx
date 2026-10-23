@@ -4,7 +4,7 @@ import { formatStation, meshSectionCsv, type MeshCrossSection } from '../engine'
 import { downloadText } from '../lib/download';
 import { formatElevation, formatNumber } from '../lib/format';
 import { useProject, type SectionSheet } from '../state/store';
-import { fitCamera, type PlanCamera } from '../view/camera';
+import { fitCamera, panBy, type PlanCamera } from '../view/camera';
 import { attachSheetGestures } from '../view/gestureDom';
 
 export function SectionCanvas({ active = true }: { active?: boolean }) {
@@ -125,6 +125,14 @@ export function SectionCanvas({ active = true }: { active?: boolean }) {
         zoomOriginal: () => {
           if (!original) return;
           cameraRef.current = { ...original };
+          draw();
+        },
+        panScreen: (direction) => {
+          const width = parent.clientWidth;
+          const height = parent.clientHeight;
+          const dx = direction === 'left' ? width * 0.2 : direction === 'right' ? -width * 0.2 : 0;
+          const dy = direction === 'up' ? height * 0.2 : direction === 'down' ? -height * 0.2 : 0;
+          cameraRef.current = panBy(cameraRef.current, dx, dy, true);
           draw();
         },
         redraw: () => draw(),

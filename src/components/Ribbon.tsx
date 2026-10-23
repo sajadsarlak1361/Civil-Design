@@ -1,5 +1,5 @@
 import { memo, useEffect, useRef, useState, useSyncExternalStore } from 'react';
-import { editDrawing, getDrawingModel, postMessage, runCommand, runPreset, runViewportLayout, runVisualStyle } from '../commands/runtime';
+import { editDrawing, getDrawingModel, postMessage, runCommand, runPreset, runViewportLayout, runVisualStyle, startZoom } from '../commands/runtime';
 import { civilCommand } from '../engine';
 import { parseColorInput } from '../engine/aci';
 import { contoursToDxf, generateContours, surfaceToLandXml, trianglesToDxf, volumeReportCsv } from '../engine';
@@ -46,6 +46,7 @@ export const Ribbon = memo(function Ribbon() {
   const project = useProject();
   const [tab, setTab] = useState<RibbonTab>('Home');
   const [menuBox, setMenuBox] = useState<{ id: string; top: number; left: number } | null>(null);
+  const [collapsedMenu, setCollapsedMenu] = useState<{ key: string; top: number; left: number; items: { label: string; title: string; command: string; run: () => void }[] } | null>(null);
   const bodyRef = useRef<HTMLElement>(null);
   const rootRef = useRef<HTMLDivElement>(null);
 
@@ -63,6 +64,52 @@ export const Ribbon = memo(function Ribbon() {
       window.removeEventListener('resize', close);
     };
   }, [menuBox]);
+
+  useEffect(() => {
+    setCollapsedMenu(null);
+  }, [tab, ws.ribbonMode]);
+
+  useEffect(() => {
+    const node = bodyRef.current;
+    if (!node) return;
+    const onClick = (event: MouseEvent) => {
+      const heading = (event.target as Element | null)?.closest('h2');
+      const panel = heading?.closest<HTMLElement>('.ribbon-panel.is-collapsed');
+      if (!heading || !panel || !node.contains(panel)) return;
+      event.preventDefault();
+      const key = panel.getAttribute('aria-label') ?? panel.dataset.panel ?? 'Ribbon';
+      const rect = heading.getBoundingClientRect();
+      const buttons = [...panel.querySelectorAll<HTMLButtonElement>('.ribbon-tools button')].filter((button) => !button.classList.contains('ribbon-caret'));
+      setCollapsedMenu((current) => {
+        if (current?.key === key) return null;
+        return {
+          key,
+          top: rect.bottom + 2,
+          left: Math.max(8, Math.min(rect.left, window.innerWidth - 220)),
+          items: buttons.map((button) => ({
+            label: button.querySelector('span')?.textContent?.trim() || button.title || 'Command',
+            title: button.title,
+            command: button.dataset.command ?? '',
+            run: () => button.click(),
+          })),
+        };
+      });
+    };
+    node.addEventListener('click', onClick);
+    return () => node.removeEventListener('click', onClick);
+  }, []);
+
+  useEffect(() => {
+    if (!collapsedMenu) return;
+    const close = (event: PointerEvent) => {
+      const target = event.target as Element | null;
+      if (target?.closest('.ribbon-overflow')) return;
+      if (target?.closest('.ribbon-panel.is-collapsed h2')) return;
+      setCollapsedMenu(null);
+    };
+    window.addEventListener('pointerdown', close);
+    return () => window.removeEventListener('pointerdown', close);
+  }, [collapsedMenu]);
 
   useEffect(() => {
     const node = bodyRef.current;
@@ -226,6 +273,25 @@ export const Ribbon = memo(function Ribbon() {
       <span className="sr-only">
         {HOME_PANELS.join(' ')} {INSERT_PANELS.join(' ')} {ANNOTATE_PANELS.join(' ')} {VIEW_PANELS.join(' ')} {MANAGE_PANELS.join(' ')} {OUTPUT_PANELS.join(' ')} {ANALYZE_PANELS.join(' ')}
       </span>
+      {collapsedMenu && (
+        <div className="ribbon-menu ribbon-overflow" role="menu" style={{ top: collapsedMenu.top, left: collapsedMenu.left }}>
+          {collapsedMenu.items.map((item) => (
+            <button
+              key={`${item.command}:${item.label}`}
+              type="button"
+              role="menuitem"
+              title={item.title}
+              data-command={item.command || undefined}
+              onClick={() => {
+                setCollapsedMenu(null);
+                item.run();
+              }}
+            >
+              <strong>{item.label}</strong>
+            </button>
+          ))}
+        </div>
+      )}
     </div>
   );
 });
@@ -413,6 +479,14 @@ function ViewHome({ projectView, onView, onFit }: { projectView: string; onView:
   return (
     <section className="ribbon-panel" aria-label="View" data-panel="View">
       <div className="ribbon-tools stack">
+        <button type="button" className="ribbon-sm" data-command="ZOOM" title="Zoom in" onClick={() => startZoom('2x')}>
+          <RibbonIcon command="ZOOM" />
+          <span>Zoom In</span>
+        </button>
+        <button type="button" className="ribbon-sm" data-command="ZOOM" title="Zoom out" onClick={() => startZoom('0.5x')}>
+          <RibbonIcon command="ZOOM" />
+          <span>Zoom Out</span>
+        </button>
         <button type="button" className="ribbon-sm" data-command="ZOOM" title="Zoom extents" onClick={onFit}>
           <RibbonIcon command="ZOOM" />
           <span>Extents</span>
@@ -439,7 +513,33 @@ function ViewTab({ onView, onFit }: { onView: (view: 'plan' | '3d' | 'split' | '
   const ws = useWorkspace();
   return (
     <>
-      <CommandPanel title="Viewport Tools" items={[['Extents', 'ZOOMEXTENTS'], ['Pan', 'PAN'], ['Plan', 'PLAN']]} onRun={(command) => (command === 'ZOOMEXTENTS' ? onFit() : runCommand(command))} />
+      <section className="ribbon-panel" aria-label="Viewport Tools" data-panel="Viewport Tools">
+        <div className="ribbon-tools stack">
+          <button type="button" className="ribbon-sm" data-command="ZOOM" title="Zoom in" onClick={() => startZoom('2x')}>
+            <RibbonIcon command="ZOOM" />
+            <span>Zoom In</span>
+          </button>
+          <button type="button" className="ribbon-sm" data-command="ZOOM" title="Zoom out" onClick={() => startZoom('0.5x')}>
+            <RibbonIcon command="ZOOM" />
+            <span>Zoom Out</span>
+          </button>
+          <button type="button" className="ribbon-sm" data-command="ZOOMEXTENTS" title="Zoom extents" onClick={onFit}>
+            <RibbonIcon command="ZOOM" />
+            <span>Extents</span>
+          </button>
+          <button type="button" className="ribbon-sm" data-command="PAN" title="Pan" onClick={() => runCommand('PAN')}>
+            <RibbonIcon command="PAN" />
+            <span>Pan</span>
+          </button>
+          <button type="button" className="ribbon-sm" data-command="PLAN" title="Plan" onClick={() => runCommand('PLAN')}>
+            <RibbonIcon command="PLAN" />
+            <span>Plan</span>
+          </button>
+        </div>
+        <h2>
+          <span>Viewport Tools</span>
+        </h2>
+      </section>
       <section className="ribbon-panel" aria-label="Model Viewports" data-panel="Model Viewports">
         <div className="ribbon-tools stack">
           {([1, 2, 3, 4] as const).map((count) => (
