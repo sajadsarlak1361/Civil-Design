@@ -933,15 +933,17 @@ function immediate(command: string, options?: { mode?: 'layout' | 'tangents' | '
       say('Layer Properties Manager.', 'message');
       return;
     case 'PROPERTIES':
+      if (propertiesOpen || getWorkspace().properties) {
+        closeProperties();
+        say('Properties closed.', 'message');
+        return;
+      }
       propertiesOpen = true;
       patchChrome({ properties: true });
       say('Properties palette.', 'message');
       return;
     case 'PROPERTIESCLOSE':
-      propertiesOpen = false;
-      vertexMarker = null;
-      patchChrome({ properties: false });
-      publishView();
+      closeProperties();
       return;
     case 'QUICKPROPERTIES':
       quickProperties = !quickProperties;

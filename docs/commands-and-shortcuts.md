@@ -75,7 +75,7 @@ Menu labels that look like shortcuts and are typed aliases, not keys: Redraw is 
 | `DIST` | Measure a distance |
 | `ID` | Report a coordinate |
 | `AREA` | Report an area |
-| `PROPERTIES` | Open the Properties palette |
+| `PROPERTIES` | Open or close the Properties palette. `PR`, `CH`, `MO`, and `PROPS` do the same |
 | `PROPERTIESCLOSE` | Close the Properties palette |
 | `QSELECT` | Quick select objects by property |
 | `QUICKPROPERTIES` | Toggle the Quick Properties hover panel |

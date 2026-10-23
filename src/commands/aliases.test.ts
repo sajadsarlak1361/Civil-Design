@@ -1,6 +1,6 @@
 import { writeFileSync } from 'node:fs';
 import { describe, expect, it } from 'vitest';
-import { IMPLEMENTED_COMMANDS } from './catalog';
+import { COMMAND_ALIASES, IMPLEMENTED_COMMANDS } from './catalog';
 import {
   aliasRows,
   bundledPgp,
@@ -12,8 +12,9 @@ import {
   unavailableMessage,
   unknownMessage,
 } from './catalog';
-import { IMMEDIATE_COMMANDS } from './runtime';
+import { getCommandSnapshot, IMMEDIATE_COMMANDS, runCommand, setInputValue, submitInput } from './runtime';
 import { SESSION_COMMANDS } from './session';
+import { getWorkspace, resetWorkspace } from '../view/workspace';
 
 const famous: Record<string, string> = {
   L: 'LINE',
@@ -46,6 +47,9 @@ const famous: Record<string, string> = {
   MA: 'MATCHPROP',
   PR: 'PROPERTIES',
   CH: 'PROPERTIES',
+  MO: 'PROPERTIES',
+  PROPS: 'PROPERTIES',
+  PRCLOSE: 'PROPERTIESCLOSE',
   DI: 'DIST',
   Z: 'ZOOM',
   P: 'PAN',
@@ -131,5 +135,34 @@ describe('classic CAD alias file', () => {
     }
     writeFileSync('/tmp/fieldline-alias-table.md', lines.join('\n') + '\n');
     expect(lines.length).toBeGreaterThan(400);
+  });
+
+  it('registers PR, CH, MO, and PROPS in the command registry and in classic.pgp', () => {
+    for (const entry of COMMAND_ALIASES) {
+      expect(pgpAliases().find((row) => row.alias === entry.alias)?.command, entry.alias).toBe(entry.command);
+      expect(resolveToken(entry.alias), entry.alias).toMatchObject({ command: entry.command, implemented: true, known: true });
+    }
+  });
+
+  it('opens and closes the Properties palette from the command line', () => {
+    resetWorkspace();
+    runCommand('PROPERTIESCLOSE');
+    expect(getCommandSnapshot().propertiesOpen).toBe(false);
+    for (const token of ['PR', 'PROPERTIES', 'CH', 'MO', 'PROPS']) {
+      setInputValue(token);
+      submitInput();
+      const opened = getCommandSnapshot();
+      expect(opened.propertiesOpen, token).toBe(true);
+      expect(getWorkspace().properties, token).toBe(true);
+      expect(opened.lines.at(-2)?.text, token).toBe(`Command: ${token}`);
+      expect(opened.lines.at(-1)?.text, token).toBe('Properties palette.');
+      setInputValue(token);
+      submitInput();
+      const closed = getCommandSnapshot();
+      expect(closed.propertiesOpen, token).toBe(false);
+      expect(getWorkspace().properties, token).toBe(false);
+      expect(closed.lines.at(-2)?.text, token).toBe(`Command: ${token}`);
+      expect(closed.lines.at(-1)?.text, token).toBe('Properties closed.');
+    }
   });
 });

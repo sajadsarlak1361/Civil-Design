@@ -145,6 +145,18 @@ export const FIELDLINE_ALIASES: PgpAlias[] = [
   { alias: 'MREDO', command: 'REDO' },
 ];
 
+/**
+ * Command-registry aliases. Each row is also a classic.pgp line.
+ * Typing one of these runs that command, including open and close for the Properties palette.
+ */
+export const COMMAND_ALIASES: PgpAlias[] = [
+  { alias: 'PR', command: 'PROPERTIES' },
+  { alias: 'CH', command: 'PROPERTIES' },
+  { alias: 'MO', command: 'PROPERTIES' },
+  { alias: 'PROPS', command: 'PROPERTIES' },
+  { alias: 'PRCLOSE', command: 'PROPERTIESCLOSE' },
+];
+
 export const FIELDLINE_COMMANDS: { name: string; description: string }[] = [
   { name: 'CONTOURS', description: 'Toggle contours on the active TIN surface' },
   { name: 'CREATE3DMESH', description: 'Create a 3D mesh from points with ball pivoting' },
@@ -205,7 +217,7 @@ export const FIELDLINE_COMMANDS: { name: string; description: string }[] = [
   { name: 'XCLIP', description: 'Clip an external reference with a rectangle' },
   ...HOME_COMMAND_HELP,
   { name: 'LAYER', description: 'Open the Layer Properties Manager' },
-  { name: 'PROPERTIES', description: 'Open the Properties palette' },
+  { name: 'PROPERTIES', description: 'Open or close the Properties palette' },
   { name: 'PROPERTIESCLOSE', description: 'Close the Properties palette' },
   { name: 'QUICKPROPERTIES', description: 'Toggle the Quick Properties hover panel' },
   { name: 'QSELECT', description: 'Quick select objects by property' },
@@ -262,6 +274,7 @@ function tables(): Tables {
   if (cached) return cached;
   const parsed = parsePgp(classicPgp);
   const pgp = new Map(parsed.aliases.map((entry) => [entry.alias, entry.command]));
+  for (const entry of COMMAND_ALIASES) pgp.set(entry.alias, entry.command);
   const field = new Map<string, string>();
   for (const entry of FIELDLINE_ALIASES) {
     if (!pgp.has(entry.alias)) field.set(entry.alias, entry.command);
