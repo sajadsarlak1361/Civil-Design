@@ -262,15 +262,18 @@ export function interactionMode(): 'idle' | 'point' | 'select' | 'tool' {
   return 'idle';
 }
 
-export function importDrawing(entities: DrawEntity[], layers: string[], label: string): void {
+export function importDrawing(entities: DrawEntity[], layers: string[], label: string, bulk?: DxfModel['bulk']): void {
   model.checkpoint(label);
   for (const name of layers) {
     if (!model.layer(name)) model.doc.layers.push(normalizeLayer({ name, color: '#e8eef7', lineType: 'Continuous' }));
   }
   for (const entity of entities) model.add({ ...entity, id: model.nextId() });
+  if (bulk && bulk.entityCount > 0) model.doc.bulk = bulk;
   model.emit();
   publishView();
   frameImported();
+  if (bulk?.truncated) say('Opened the first part of this DXF. The rest is larger than this session can hold.', 'message');
+  else if (bulk && bulk.entityCount > 0) say(`Opened ${bulk.entityCount} objects.`, 'message');
 }
 
 export function importDxf(modelIn: DxfModel): void {
@@ -282,7 +285,7 @@ export function importDxf(modelIn: DxfModel): void {
     ];
     return edges;
   });
-  importDrawing([...modelIn.entities, ...faces], [...modelIn.layers, 'TIN'], 'DXFIN');
+  importDrawing([...modelIn.entities, ...faces], [...modelIn.layers, 'TIN'], 'DXFIN', modelIn.bulk);
   for (const layer of modelIn.layerRecords ?? []) {
     if (!model.layer(layer.name)) {
       model.doc.layers.push(normalizeLayer({ name: layer.name, color: layer.color, colorIndex: layer.colorIndex, lineType: layer.lineType, lineWeight: layer.lineWeight, frozen: layer.frozen, locked: layer.locked, visible: layer.visible }));
@@ -797,7 +800,7 @@ function immediate(command: string, options?: { mode?: 'layout' | 'tangents' | '
       model.doc.selection = selectAll(model.doc);
       model.emit();
       getView()?.redraw();
-      say(`${model.doc.selection.length} selected.`, 'message');
+      say(`${model.doc.bulk && model.doc.bulk.entityCount > 0 ? model.doc.bulk.entityCount : model.doc.selection.length} selected.`, 'message');
       return;
     case 'SELECTSIMILAR':
       model.doc.selection = selectSimilar(model.doc, model.doc.selection);

@@ -9,8 +9,8 @@ import { readShp } from './engine/formats/shp';
 import { pointsToText } from './engine/points';
 import { attachXref, markNeedsReload, replaceXrefs, sampleXrefs, updateXrefs } from './engine/xref';
 import { getCpuLimit, setCpuLimit } from './engine/budget';
-import { heavyBinary, heavyText, readDemOffThread, readGeoTiffOffThread, readLasOffThread, readMeshOffThread, readXyzGridOffThread } from './engine/importWork';
-import { resizePool } from './engine/pool';
+import { heavyBinary, heavyText, readDemOffThread, readDxfOffThread, readGeoTiffOffThread, readLasOffThread, readMeshOffThread, readXyzGridOffThread } from './engine/importWork';
+import { poolAvailable, resizePool } from './engine/pool';
 import { subscribeTasks, taskSnapshot, tasks } from './engine/tasks';
 import type { TaskHandle } from './engine/tasks';
 import { bindHost, getCommandSnapshot, getDrawingModel, importDrawing, importDxf, importDwgModel, installDrawingHistory, postMessage, reportLine, subscribeCommandUi, subscribeDrawing, syncToolPrompt } from './commands/runtime';
@@ -37,7 +37,8 @@ import { SectionCanvas } from './components/SectionCanvas';
 import { MeshCreateDialog, MeshSectionDialog } from './components/MeshDialogs';
 import { APP_TITLE, COPYRIGHT, COPYRIGHT_NOTE } from './brand';
 import { downloadBytes, downloadText } from './lib/download';
-import { desktopAvailable, desktopOpen, desktopReadPath, desktopSave, desktopTakeLaunchPath, desktopWatch, onDesktopOpenPaths, onDesktopXrefChanged } from './lib/desktopFiles';
+import { DXF_BULK_BYTES, parseDxfFile } from './engine/formats/dxfStream';
+import { desktopAvailable, desktopFileSize, desktopOpen, desktopReadDxf, desktopReadPath, desktopSave, desktopTakeLaunchPath, desktopWatch, onDesktopOpenPaths, onDesktopXrefChanged } from './lib/desktopFiles';
 import { OPEN_ACCEPT, saveFilters } from './lib/openFiles';
 import { rememberRecent } from './lib/recentFiles';
 import { onUi } from './lib/uiBus';
@@ -121,6 +122,20 @@ function Shell() {
           if (desktopAvailable()) {
             try {
               const file = await desktopOpen();
+              if (file?.streamDxf && file.byteLength) {
+                const stem = file.name.replace(/\.[^.]+$/, '') || file.name;
+                const task = tasks.start({ command: 'OPEN', title: `Reading DXF "${stem}"`, stages: ['Reading'], blocksInput: true });
+                try {
+                  const model = await desktopReadDxf(file.path, file.byteLength);
+                  task.finish();
+                  rememberRecent(file.name);
+                  importDxf(model);
+                } catch (error) {
+                  task.finish();
+                  window.alert(error instanceof Error ? error.message : 'Could not read that DXF.');
+                }
+                return;
+              }
               if (file) ingestRef.current(file.name, file.bytes);
             } catch (error) {
               window.alert(error instanceof Error ? error.message : 'Could not open that file.');
@@ -261,10 +276,13 @@ function Shell() {
         setLayout(count);
         projectRef.current.setView('3d');
       },
-      drawing() {
+        drawing() {
         const doc = getDrawingModel().doc;
+        const bulk = doc.bulk?.entityCount ?? 0;
         return {
-          entities: doc.entities.length,
+          entities: bulk > 0 ? bulk : doc.entities.length,
+          bulk,
+          truncated: Boolean(doc.bulk?.truncated),
           types: doc.entities.map((entity) => entity.type),
           layers: doc.layers.map((layer) => layer.name),
         };
@@ -357,6 +375,10 @@ function Shell() {
       return;
     }
     if (classified.kind === 'dxf') {
+      if (bytes.byteLength >= DXF_BULK_BYTES && poolAvailable()) {
+        withBusy(`Reading DXF "${stem}"`, true, () => readDxfOffThread(bytes), (model) => importDxf(model), 'Could not read that DXF.');
+        return;
+      }
       importDxf(parseDxf(bytes));
       return;
     }
@@ -428,6 +450,10 @@ function Shell() {
       return;
     }
     let snapshot = { entities: [] as ReturnType<typeof parseDxf>['entities'], layers: [] as { name: string; color: string; visible: boolean; locked: boolean; lineType: string }[] };
+    if (classified.kind === 'dxf' && bytes.byteLength >= DXF_BULK_BYTES) {
+      window.alert('That DXF is large. Open it from File > Open.');
+      return;
+    }
     if (classified.kind === 'dxf') {
       const model = parseDxf(bytes);
       snapshot = {
@@ -488,6 +514,21 @@ function Shell() {
   };
 
   const read = async (file: File) => {
+    if (file.size >= DXF_BULK_BYTES && /\.dxf$/i.test(file.name)) {
+      const stem = file.name.replace(/\.[^.]+$/, '') || file.name;
+      const task = tasks.start({ command: 'OPEN', title: `Reading DXF "${stem}"`, stages: ['Reading'], blocksInput: true });
+      try {
+        const model = await parseDxfFile(file);
+        task.finish();
+        rememberRecent(file.name);
+        importDxf(model);
+      } catch (error) {
+        task.finish();
+        if (error instanceof Error && error.name === 'AbortError') return;
+        window.alert(error instanceof Error ? error.message : 'Could not read that DXF.');
+      }
+      return;
+    }
     ingest(file.name, new Uint8Array(await file.arrayBuffer()));
   };
 
@@ -495,11 +536,31 @@ function Shell() {
     if (!desktopAvailable()) return;
     const openPaths = (paths: string[]) => {
       for (const path of paths) {
-        void desktopReadPath(path)
-          .then((file) => ingestRef.current(file.name, file.bytes))
-          .catch((error: unknown) => {
+        void (async () => {
+          try {
+            if (/\.dxf$/i.test(path)) {
+              const size = await desktopFileSize(path);
+              if (size != null && size >= DXF_BULK_BYTES) {
+                const name = path.split(/[\\/]/).pop() || path;
+                const task = tasks.start({ command: 'OPEN', title: `Reading DXF "${name}"`, stages: ['Reading'], blocksInput: true });
+                try {
+                  const model = await desktopReadDxf(path, size);
+                  task.finish();
+                  rememberRecent(name);
+                  importDxf(model);
+                } catch (error) {
+                  task.finish();
+                  window.alert(error instanceof Error ? error.message : 'Could not read that DXF.');
+                }
+                return;
+              }
+            }
+            const file = await desktopReadPath(path);
+            ingestRef.current(file.name, file.bytes);
+          } catch (error) {
             window.alert(error instanceof Error ? error.message : 'Could not open that file.');
-          });
+          }
+        })();
       }
     };
     let stop = () => {};
@@ -556,6 +617,10 @@ function Shell() {
       void (async () => {
         if (desktopAvailable()) {
           const file = await desktopOpen();
+          if (file?.streamDxf) {
+            window.alert('That DXF is large. Open it from File > Open.');
+            return;
+          }
           if (file) attachDrawing(file.name, file.bytes, file.path);
           return;
         }

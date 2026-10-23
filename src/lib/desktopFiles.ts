@@ -1,3 +1,5 @@
+import type { DxfModel } from '../engine/formats/dxfDoc';
+import { DXF_BULK_BYTES, parseDxfParts } from '../engine/formats/dxfStream';
 import { OPEN_FILTERS, PROJECT_FILTERS, dialogPath, pathsFromDropPayload, type DialogFilter } from './openFiles';
 
 interface TauriInternals {
@@ -26,6 +28,9 @@ export interface DesktopFile {
   name: string;
   path: string;
   bytes: Uint8Array;
+  /** Large ASCII DXF. `bytes` is empty; parse with `desktopReadDxf`. */
+  streamDxf?: boolean;
+  byteLength?: number;
 }
 
 function encode(bytes: Uint8Array): string {
@@ -56,6 +61,30 @@ export async function desktopReadPath(path: string): Promise<DesktopFile> {
   return readPath(path);
 }
 
+export async function desktopFileSize(path: string): Promise<number | null> {
+  const api = internals();
+  if (!api) return null;
+  try {
+    const size = await api.invoke<number>('file_size', { path });
+    return typeof size === 'number' && Number.isFinite(size) ? size : null;
+  } catch {
+    return null;
+  }
+}
+
+export async function desktopReadPart(path: string, offset: number, length: number): Promise<Uint8Array> {
+  const api = internals();
+  if (!api) throw new Error('Desktop file access is not available.');
+  const data = await api.invoke<string>('read_bytes_part', { path, offset, length });
+  if (!data) return new Uint8Array(0);
+  return decode(data);
+}
+
+/** Read a large DXF in parts so the desktop bridge does not base64 the whole file at once. */
+export async function desktopReadDxf(path: string, byteLength: number): Promise<DxfModel> {
+  return parseDxfParts(byteLength, (offset, length) => desktopReadPart(path, offset, length));
+}
+
 export async function desktopOpen(filters: DialogFilter[] = OPEN_FILTERS): Promise<DesktopFile | null> {
   const api = internals();
   if (!api) return null;
@@ -64,6 +93,13 @@ export async function desktopOpen(filters: DialogFilter[] = OPEN_FILTERS): Promi
   });
   const path = dialogPath(picked);
   if (!path) return null;
+  if (/\.dxf$/i.test(path)) {
+    const size = await desktopFileSize(path);
+    if (size != null && size >= DXF_BULK_BYTES) {
+      const name = path.split(/[\\/]/).pop() || path;
+      return { name, path, bytes: new Uint8Array(0), streamDxf: true, byteLength: size };
+    }
+  }
   return readPath(path);
 }
 

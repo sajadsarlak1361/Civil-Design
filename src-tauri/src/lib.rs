@@ -1,6 +1,7 @@
 use base64::Engine;
 use notify::{EventKind, RecommendedWatcher, RecursiveMode, Watcher};
 use serde::Serialize;
+use std::io::{Read, Seek, SeekFrom};
 use std::path::{Path, PathBuf};
 use std::process::Command;
 use std::sync::Mutex;
@@ -58,6 +59,26 @@ fn standard() -> base64::engine::GeneralPurpose {
 fn read_bytes(path: String) -> Result<String, String> {
     let bytes = std::fs::read(&path).map_err(|err| err.to_string())?;
     Ok(standard().encode(bytes))
+}
+
+#[tauri::command]
+fn file_size(path: String) -> Result<u64, String> {
+    let meta = std::fs::metadata(&path).map_err(|err| err.to_string())?;
+    Ok(meta.len())
+}
+
+#[tauri::command]
+fn read_bytes_part(path: String, offset: u64, length: u32) -> Result<String, String> {
+    let mut file = std::fs::File::open(&path).map_err(|err| err.to_string())?;
+    let size = file.metadata().map_err(|err| err.to_string())?.len();
+    if offset >= size {
+        return Ok(String::new());
+    }
+    let len = (length as u64).min(size - offset).min(16 * 1024 * 1024) as usize;
+    file.seek(SeekFrom::Start(offset)).map_err(|err| err.to_string())?;
+    let mut buf = vec![0u8; len];
+    file.read_exact(&mut buf).map_err(|err| err.to_string())?;
+    Ok(standard().encode(buf))
 }
 
 #[tauri::command]
@@ -297,7 +318,7 @@ pub fn run() {
             }
         }))
         .manage(WatchState(Mutex::new(None)))
-        .invoke_handler(tauri::generate_handler![read_bytes, write_bytes, open_path, watch_xref, oda_probe, oda_convert, take_launch_path])
+        .invoke_handler(tauri::generate_handler![read_bytes, file_size, read_bytes_part, write_bytes, open_path, watch_xref, oda_probe, oda_convert, take_launch_path])
         .run(tauri::generate_context!())
         .expect("error while running Civil Design");
 }

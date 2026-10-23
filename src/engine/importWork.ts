@@ -1,3 +1,5 @@
+import { parseDxf, type DxfModel } from './formats/dxfDoc';
+import { DXF_BULK_BYTES } from './formats/dxfStream';
 import { readGeoTiff } from './formats/geotiff';
 import { gridToPoints, parseAsc, parseXyzGrid } from './formats/grid';
 import { readLas } from './formats/las';
@@ -22,6 +24,24 @@ export function heavyText(text: string): boolean {
 async function offThread<T>(op: string, message: Record<string, unknown>, transfer: Transferable[], task: TaskHandle | undefined, stage: string): Promise<T> {
   task?.stage(stage, 0.2);
   return runPool<T>(op, message, transfer, task?.signal);
+}
+
+export async function readDxfOffThread(bytes: Uint8Array, task?: TaskHandle): Promise<DxfModel> {
+  if (bytes.byteLength < DXF_BULK_BYTES || !poolAvailable()) return parseDxf(bytes);
+  const reply = await offThread<{
+    entities?: DxfModel['entities'];
+    faces?: DxfModel['faces'];
+    layers?: string[];
+    layerRecords?: DxfModel['layerRecords'];
+    bulk?: DxfModel['bulk'];
+  }>('dxf', { bytes }, [bytes.buffer], task, 'Reading DXF');
+  return {
+    entities: reply.entities ?? [],
+    faces: reply.faces ?? [],
+    layers: reply.layers ?? [],
+    layerRecords: reply.layerRecords,
+    bulk: reply.bulk,
+  };
 }
 
 export async function readLasOffThread(bytes: Uint8Array, task?: TaskHandle): Promise<SurveyPoint[]> {

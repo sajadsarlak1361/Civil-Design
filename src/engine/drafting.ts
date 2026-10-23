@@ -124,6 +124,23 @@ export interface DrawBlock extends EntityStyle {
 
 export type DrawEntity = DrawPoint | DrawLine | DrawPolyline | DrawCircle | DrawArc | DrawText | DrawBlock | CadShape;
 
+/** Segments and points from a large DXF, kept packed so the drawing can open. */
+export interface BulkGeometry {
+  /** x1, y1, x2, y2 per segment. */
+  segments: Float64Array;
+  /** x, y per point. */
+  points: Float64Array;
+  segmentCount: number;
+  pointCount: number;
+  /** Source entities, including any circles and text also listed in `entities`. */
+  entityCount: number;
+  minX: number;
+  minY: number;
+  maxX: number;
+  maxY: number;
+  truncated: boolean;
+}
+
 export interface DrawingDoc {
   layers: LayerRec[];
   currentLayer: string;
@@ -132,6 +149,8 @@ export interface DrawingDoc {
   currentColorIndex?: number;
   linetypeScale: number;
   entities: DrawEntity[];
+  /** Packed geometry for a large DXF. Individual rows are not separate entities. */
+  bulk?: BulkGeometry;
   selection: string[];
   /** Blocks, groups, styles, and annotation scale. Absent only before parse fills it. */
   library?: CadLibrary;
@@ -198,6 +217,7 @@ interface DrawingSnap {
   currentColor: string;
   linetypeScale: number;
   entities: DrawEntity[];
+  bulk?: BulkGeometry;
   selection: string[];
   objects: DrawingDoc['objects'];
   filters: DrawingDoc['filters'];
@@ -258,6 +278,7 @@ export class DrawingModel {
       currentColor: this.doc.currentColor,
       linetypeScale: this.doc.linetypeScale,
       entities: this.doc.entities,
+      bulk: this.doc.bulk,
       selection: this.doc.selection.slice(),
       objects: structuredClone(this.doc.objects),
       filters: structuredClone(this.doc.filters),
@@ -274,6 +295,7 @@ export class DrawingModel {
       currentColor: snap.currentColor,
       linetypeScale: snap.linetypeScale,
       entities: snap.entities,
+      bulk: snap.bulk,
       selection: snap.selection.slice(),
       objects: structuredClone(snap.objects),
       filters: structuredClone(snap.filters),
@@ -774,6 +796,10 @@ export function drawingBounds(doc: DrawingDoc): Bounds | null {
     const box = entityBounds(entity);
     if (!box) continue;
     points.push({ x: box.minX, y: box.minY }, { x: box.maxX, y: box.maxY });
+  }
+  const bulk = doc.bulk;
+  if (bulk && bulk.entityCount > 0 && Number.isFinite(bulk.minX) && Number.isFinite(bulk.maxX)) {
+    points.push({ x: bulk.minX, y: bulk.minY }, { x: bulk.maxX, y: bulk.maxY });
   }
   return boundsOf(points);
 }

@@ -1,5 +1,6 @@
 import { packBvh, TriangleBvh } from './bvh';
 import { generateContoursPacked } from './contours';
+import { parseDxf } from './formats/dxfDoc';
 import { readGeoTiff } from './formats/geotiff';
 import { gridToPoints, parseAsc, parseXyzGrid } from './formats/grid';
 import { readLas } from './formats/las';
@@ -134,6 +135,19 @@ globalThis.addEventListener('message', (event: Event) => {
     if (data.op === 'parse') {
       const parsed = parsePointFile(data.text ?? '', { format: data.format, delimiter: data.delimiter });
       post({ id: data.id, op: 'parse', points: parsed.points, skipped: parsed.skipped.length, delimiter: parsed.delimiter, format: parsed.format });
+      return;
+    }
+    if (data.op === 'dxf') {
+      const model = parseDxf(data.bytes ?? new Uint8Array());
+      const transfers: Transferable[] = [];
+      if (model.bulk) {
+        if (model.bulk.segments.byteLength > 0) transfers.push(model.bulk.segments.buffer);
+        if (model.bulk.points.byteLength > 0) transfers.push(model.bulk.points.buffer);
+      }
+      post(
+        { id: data.id, op: 'dxf', entities: model.entities, faces: model.faces, layers: model.layers, layerRecords: model.layerRecords, bulk: model.bulk },
+        transfers,
+      );
       return;
     }
     if (data.op === 'las') {

@@ -1,5 +1,6 @@
-import type { DrawEntity, Vec3 } from '../drafting';
+import type { BulkGeometry, DrawEntity, Vec3 } from '../drafting';
 import type { LinearUnit } from '../types';
+import { createDxfStream, DXF_BULK_BYTES } from './dxfStream';
 
 export interface DxfFace {
   a: Vec3;
@@ -23,6 +24,8 @@ export interface DxfModel {
   faces: DxfFace[];
   layers: string[];
   layerRecords?: DxfLayerInfo[];
+  /** Compact geometry for a large ASCII DXF. Absent on ordinary drawings. */
+  bulk?: BulkGeometry;
 }
 
 const ACI: Record<number, string> = {
@@ -396,10 +399,16 @@ export function modelFromGroups(groups: Group[]): DxfModel {
   return { entities, faces, layers: [...layers], layerRecords };
 }
 
-export function parseDxf(input: string | Uint8Array): DxfModel {
+export function parseDxf(input: string | Uint8Array, options?: { bulkBytes?: number; maxSegments?: number }): DxfModel {
   if (typeof input !== 'string') {
     const head = new TextDecoder().decode(input.subarray(0, 22));
     if (head.startsWith('AutoCAD Binary DXF')) return modelFromGroups(binaryGroups(input));
+    const bulkBytes = options?.bulkBytes ?? DXF_BULK_BYTES;
+    if (input.byteLength >= bulkBytes) {
+      const stream = createDxfStream(input.byteLength, options?.maxSegments);
+      stream.push(input);
+      return stream.finish();
+    }
     return modelFromGroups(asciiGroups(new TextDecoder().decode(input)));
   }
   return modelFromGroups(asciiGroups(input));
