@@ -12,6 +12,7 @@
     "allow-write-bytes",
     "allow-watch-xref",
     "allow-open-path",
+    "allow-take-launch-path",
     "allow-oda-probe",
     "allow-oda-convert"
   ]

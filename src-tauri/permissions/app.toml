@@ -19,6 +19,11 @@ description = "Open a saved xref path with the default application."
 commands.allow = ["open_path"]
 
 [[permission]]
+identifier = "allow-take-launch-path"
+description = "Read a drawing path passed when the desktop app starts."
+commands.allow = ["take_launch_path"]
+
+[[permission]]
 identifier = "allow-oda-probe"
 description = "Look for ODA File Converter on this computer."
 commands.allow = ["oda_probe"]

@@ -287,7 +287,7 @@ function AboutDialog({ onClose }: { onClose: () => void }) {
         <div className="modal-body">
           <p>{INDEPENDENCE}</p>
           <p>Terrain surfaces. After this page loads, it keeps working with no network.</p>
-          <p>In the browser, saving a DWG writes a DXF. The desktop app writes DWG when ODA File Converter is installed.</p>
+          <p>LibreDWG reads DWG offline in the browser and on the desktop. Saving writes DXF unless ODA File Converter is selected.</p>
           <p>{COPYRIGHT}</p>
           <p>{COPYRIGHT_NOTE}</p>
         </div>

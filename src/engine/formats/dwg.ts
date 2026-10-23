@@ -2,14 +2,12 @@
  * DWG engines.
  *
  * LibreDWG (GPL-3.0) is bundled as WebAssembly and loaded in a worker the
- * first time a DWG is opened. That build reads R14 through 2018. Its writer
- * is not in the module, so browser Save As emits the DXF that a LibreDWG
- * dxf2dwg step consumes.
+ * first time a DWG is opened, in the browser and on the desktop. That build
+ * reads R14 through 2018. Its writer is not in the module, so Save As emits
+ * the DXF that a LibreDWG dxf2dwg step consumes.
  *
- * The desktop app can also run ODA File Converter when it is installed:
- * open converts DWG to DXF, and save converts DXF to DWG at the chosen version.
- * Auto uses ODA when the converter is found, and LibreDWG otherwise.
- * The single-file page has no ODA path.
+ * ODA File Converter is optional. Choose it in DWG Settings to write a DWG,
+ * or to read one when the bundled module cannot. Auto uses LibreDWG first.
  */
 
 export type DwgEngineId = 'auto' | 'libredwg' | 'oda';
@@ -48,11 +46,11 @@ export const DWG_VERDICT: DwgVerdict = {
   read: 'yes',
   write: 'partial',
   reason:
-    'LibreDWG reads DWG and DWT from R14 through 2018 offline (GPL-3.0). The bundled module does not include the DWG writer. Save As writes DXF, and the desktop app asks ODA File Converter to turn that DXF into DWG at the chosen version (2000 through 2018). Auto uses ODA when it is installed.',
+    'LibreDWG reads DWG and DWT from R14 through 2018 offline in the browser and on the desktop (GPL-3.0). The bundled module does not include a DWG writer, so Save As writes DXF. ODA File Converter is optional. When it is selected, it writes DWG at the chosen version (2000 through 2018).',
 };
 
 export const DWG_WRITE_LIMIT =
-  'LibreDWG in this build reads DWG and does not write it. Civil Design saved a DXF instead. On the desktop, install ODA File Converter and choose it under DWG Settings to write a DWG. LibreDWG itself writes the 2000 release most reliably from that DXF.';
+  'LibreDWG in this build reads DWG and does not write it. Civil Design saved a DXF instead. Choose ODA File Converter under DWG Settings to write a DWG. LibreDWG itself writes the 2000 release most reliably from that DXF.';
 
 export const ODA_MISSING =
   'ODA File Converter was not found. Install it, then set its path in DWG Settings. Windows looks in Program Files\\ODA\\ODAFileConverter and in versioned folders next to it. Linux looks at /usr/bin/ODAFileConverter, /usr/local/bin/ODAFileConverter, /opt/ODAFileConverter/ODAFileConverter, and ODAFileConverter under your home directory. Until then, Auto uses the bundled LibreDWG reader.';

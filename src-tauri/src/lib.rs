@@ -8,6 +8,48 @@ use tauri::{AppHandle, Emitter, Manager};
 
 struct WatchState(Mutex<Option<RecommendedWatcher>>);
 
+static LAUNCH: Mutex<Option<String>> = Mutex::new(None);
+
+fn drawing_arg(args: impl IntoIterator<Item = String>) -> Option<String> {
+    let current = std::env::current_exe().ok();
+    for arg in args {
+        if arg.starts_with('-') {
+            continue;
+        }
+        let path = Path::new(&arg);
+        if !path.is_file() {
+            continue;
+        }
+        if current.as_ref().is_some_and(|exe| exe == path) {
+            continue;
+        }
+        let ext = path
+            .extension()
+            .and_then(|item| item.to_str())
+            .unwrap_or("")
+            .to_ascii_lowercase();
+        if ext == "exe" || ext == "msi" || ext == "dll" {
+            continue;
+        }
+        return Some(arg);
+    }
+    None
+}
+
+fn remember_launch() {
+    let Some(path) = drawing_arg(std::env::args().skip(1)) else {
+        return;
+    };
+    if let Ok(mut slot) = LAUNCH.lock() {
+        *slot = Some(path);
+    }
+}
+
+#[tauri::command]
+fn take_launch_path() -> Option<String> {
+    LAUNCH.lock().ok().and_then(|mut slot| slot.take())
+}
+
 fn standard() -> base64::engine::GeneralPurpose {
     base64::engine::general_purpose::STANDARD
 }
@@ -245,12 +287,17 @@ fn oda_convert(exe: String, name: String, data: String, version: String, output_
 
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
+    remember_launch();
     tauri::Builder::default()
         .plugin(tauri_plugin_dialog::init())
         .plugin(tauri_plugin_window_state::Builder::default().build())
-        .plugin(tauri_plugin_single_instance::init(|_app, _argv, _cwd| {}))
+        .plugin(tauri_plugin_single_instance::init(|app, argv, _cwd| {
+            if let Some(path) = drawing_arg(argv) {
+                let _ = app.emit("fieldline-open-path", path);
+            }
+        }))
         .manage(WatchState(Mutex::new(None)))
-        .invoke_handler(tauri::generate_handler![read_bytes, write_bytes, open_path, watch_xref, oda_probe, oda_convert])
+        .invoke_handler(tauri::generate_handler![read_bytes, write_bytes, open_path, watch_xref, oda_probe, oda_convert, take_launch_path])
         .run(tauri::generate_context!())
         .expect("error while running Civil Design");
 }

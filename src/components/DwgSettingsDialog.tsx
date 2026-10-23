@@ -41,13 +41,13 @@ export function DwgSettingsDialog({ onClose }: { onClose: () => void }) {
       >
         <header>
           <h2 id="dwg-settings-title">DWG settings</h2>
-          <p>LibreDWG is bundled and GPL-3.0. Auto uses ODA File Converter on the desktop when it is installed.</p>
+          <p>LibreDWG is bundled and GPL-3.0. Auto reads with that module. ODA File Converter is optional.</p>
         </header>
         <div className="modal-body">
           <label>
             Engine
             <select value={engine} onChange={(event) => setEngine(event.target.value as DwgEngineId)}>
-              <option value="auto">Auto (ODA if found, else LibreDWG)</option>
+              <option value="auto">Auto (bundled LibreDWG)</option>
               <option value="libredwg">LibreDWG</option>
               <option value="oda">ODA File Converter</option>
             </select>

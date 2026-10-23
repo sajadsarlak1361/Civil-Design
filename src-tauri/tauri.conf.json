@@ -17,11 +17,12 @@
         "width": 1440,
         "height": 900,
         "resizable": true,
-        "center": true
+        "center": true,
+        "dragDropEnabled": true
       }
     ],
     "security": {
-      "csp": "default-src 'self'; script-src 'self' blob:; worker-src 'self' blob:; child-src 'self' blob:; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob:; font-src 'self' data:; connect-src ipc: http://ipc.localhost"
+      "csp": "default-src 'self'; script-src 'self' blob: 'wasm-unsafe-eval'; worker-src 'self' blob:; child-src 'self' blob:; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob:; font-src 'self' data:; connect-src 'self' ipc: http://ipc.localhost http://tauri.localhost https://tauri.localhost blob: data:"
     }
   },
   "bundle": {
@@ -42,6 +43,20 @@
         "name": "Civil Design Project",
         "description": "Civil Design project",
         "mimeType": "application/vnd.fieldline.project",
+        "role": "Editor"
+      },
+      {
+        "ext": ["dxf"],
+        "name": "DXF drawing",
+        "description": "DXF drawing",
+        "mimeType": "image/vnd.dxf",
+        "role": "Editor"
+      },
+      {
+        "ext": ["dwg", "dwt"],
+        "name": "DWG drawing",
+        "description": "DWG drawing",
+        "mimeType": "image/vnd.dwg",
         "role": "Editor"
       }
     ],

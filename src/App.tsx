@@ -37,7 +37,8 @@ import { SectionCanvas } from './components/SectionCanvas';
 import { MeshCreateDialog, MeshSectionDialog } from './components/MeshDialogs';
 import { APP_TITLE, COPYRIGHT, COPYRIGHT_NOTE } from './brand';
 import { downloadBytes, downloadText } from './lib/download';
-import { desktopAvailable, desktopOpen, desktopSave, desktopWatch, onDesktopXrefChanged } from './lib/desktopFiles';
+import { desktopAvailable, desktopOpen, desktopReadPath, desktopSave, desktopTakeLaunchPath, desktopWatch, onDesktopOpenPaths, onDesktopXrefChanged } from './lib/desktopFiles';
+import { OPEN_ACCEPT, saveFilters } from './lib/openFiles';
 import { rememberRecent } from './lib/recentFiles';
 import { onUi } from './lib/uiBus';
 import { chromeMetrics, PALETTE_WIDTH } from './view/chromeLayout';
@@ -117,11 +118,13 @@ function Shell() {
       openProject: () => {
         void (async () => {
           if (desktopAvailable()) {
-            const file = await desktopOpen();
-            if (file) {
-              ingestRef.current(file.name, file.bytes);
-              return;
+            try {
+              const file = await desktopOpen();
+              if (file) ingestRef.current(file.name, file.bytes);
+            } catch (error) {
+              window.alert(error instanceof Error ? error.message : 'Could not open that file.');
             }
+            return;
           }
           document.getElementById('open-file')?.click();
         })();
@@ -256,6 +259,14 @@ function Shell() {
       viewports(count: 1 | 2 | 3 | 4) {
         setLayout(count);
         projectRef.current.setView('3d');
+      },
+      drawing() {
+        const doc = getDrawingModel().doc;
+        return {
+          entities: doc.entities.length,
+          types: doc.entities.map((entity) => entity.type),
+          layers: doc.layers.map((layer) => layer.name),
+        };
       },
       seedMesh(name = 'Scan') {
         const points: { x: number; y: number; z: number }[] = [];
@@ -428,6 +439,35 @@ function Shell() {
         entities: drawing.drawing?.entities ?? [],
         layers: drawing.drawing?.layers ?? [],
       };
+    } else if (classified.kind === 'dwg') {
+      void openDwg(name, bytes)
+        .then((imported) => {
+          updateXrefs((doc) =>
+            attachXref(doc, {
+              name: name.replace(/\.[^.]+$/, '') || name,
+              kind: 'dwg',
+              savedPath: path,
+              pathType: path.includes('/') || path.includes('\\') ? 'full' : 'relative',
+              snapshot: {
+                entities: imported.entities,
+                layers: imported.layers.map((layer) => ({
+                  name: layer.name,
+                  color: layer.color,
+                  visible: layer.visible,
+                  locked: layer.locked,
+                  lineType: layer.lineType,
+                })),
+              },
+              size: bytes.length,
+            }),
+          );
+          patchChrome({ xrefs: true });
+          if (path !== name) void desktopWatch(path);
+        })
+        .catch((error: unknown) => {
+          window.alert(error instanceof Error ? error.message : 'Could not read that DWG.');
+        });
+      return;
     } else {
       window.alert('Attach a DXF or Civil Design drawing. Images use Image.');
       return;
@@ -449,6 +489,23 @@ function Shell() {
   const read = async (file: File) => {
     ingest(file.name, new Uint8Array(await file.arrayBuffer()));
   };
+
+  useEffect(() => {
+    if (!desktopAvailable()) return;
+    const openPaths = (paths: string[]) => {
+      for (const path of paths) {
+        void desktopReadPath(path)
+          .then((file) => ingestRef.current(file.name, file.bytes))
+          .catch((error: unknown) => {
+            window.alert(error instanceof Error ? error.message : 'Could not open that file.');
+          });
+      }
+    };
+    void desktopTakeLaunchPath().then((path) => {
+      if (path) openPaths([path]);
+    });
+    return onDesktopOpenPaths(openPaths);
+  }, []);
 
   useEffect(() => onDesktopXrefChanged((path) => {
     if (!path) return;
@@ -528,7 +585,16 @@ function Shell() {
       )
         .then((saved) => {
           task.finish();
-          downloadBytes(`${slug}.${saved.extension}`, saved.bytes, saved.extension === 'dwg' ? 'image/vnd.dwg' : 'application/dxf');
+          const name = `${slug}.${saved.extension}`;
+          const mime = saved.extension === 'dwg' ? 'image/vnd.dwg' : 'application/dxf';
+          if (desktopAvailable()) {
+            void desktopSave(name, saved.bytes, saveFilters(saved.extension)).then((result) => {
+              if (result === 'failed') downloadBytes(name, saved.bytes, mime);
+              if (saved.extension === 'dxf') window.alert(saved.note);
+            });
+            return;
+          }
+          downloadBytes(name, saved.bytes, mime);
           if (saved.extension === 'dxf') window.alert(saved.note);
         })
         .catch((error: unknown) => {
@@ -587,8 +653,9 @@ function Shell() {
 
   const onDrop = (event: DragEvent) => {
     event.preventDefault();
-    const file = event.dataTransfer.files[0];
-    if (file) void read(file);
+    const files = event.dataTransfer?.files;
+    if (!files) return;
+    for (const file of files) void read(file);
   };
 
   const view = project.state.view;
@@ -811,7 +878,7 @@ function Shell() {
         id="import-file"
         className="hidden-input"
         type="file"
-        accept=".csv,.txt,.xyz,.xml,.landxml,.dxf,.dwg,.dwt,.asc,.las,.shp,.tif,.tiff,.png,.jpg,.jpeg,.obj,.stl,.gltf,.fieldline,.json"
+        accept={OPEN_ACCEPT}
         onChange={(event) => {
           const file = event.target.files?.[0];
           event.target.value = '';
@@ -822,7 +889,7 @@ function Shell() {
         id="xref-file"
         className="hidden-input"
         type="file"
-        accept=".dxf,.json,.fieldline"
+        accept=".dxf,.dwg,.dwt,.json,.fieldline"
         onChange={(event) => {
           const file = event.target.files?.[0];
           event.target.value = '';
@@ -846,7 +913,7 @@ function Shell() {
         id="open-file"
         className="hidden-input"
         type="file"
-        accept=".fieldline,.json,.dxf,.dwg,.dwt,.xml,.landxml,.csv,.txt,.xyz,.asc,.las,.shp,.tif,.tiff,.png,.jpg,.jpeg,.obj,.stl,.gltf"
+        accept={OPEN_ACCEPT}
         onChange={(event) => {
           const file = event.target.files?.[0];
           event.target.value = '';

@@ -14,6 +14,7 @@ interface WriteRequest {
   op: 'write';
   dxf: string;
   version: string;
+  wasmUrl: string;
 }
 
 type Request = ReadRequest | WriteRequest;
@@ -45,7 +46,35 @@ globalThis.addEventListener('message', (event: Event) => {
   void (async () => {
     try {
       if (data.op === 'write') {
-        post({ id: data.id, bytes: null, note: DWG_WRITE_LIMIT, version: data.version });
+        const lib = await module(data.wasmUrl);
+        const writer = lib as unknown as {
+          dwg_write_file?: (input: string, output: string) => number;
+          FS?: {
+            writeFile: (name: string, bytes: Uint8Array) => void;
+            readFile: (name: string) => Uint8Array;
+            unlink: (name: string) => void;
+            analyzePath: (name: string, follow: boolean) => { exists: boolean };
+          };
+        };
+        if (typeof writer.dwg_write_file !== 'function' || !writer.FS) {
+          post({ id: data.id, bytes: null, note: DWG_WRITE_LIMIT, version: data.version });
+          return;
+        }
+        const input = 'in.dxf';
+        const output = 'out.dwg';
+        try {
+          writer.FS.writeFile(input, new TextEncoder().encode(data.dxf));
+          const error = writer.dwg_write_file(input, output);
+          if (error !== 0 || !writer.FS.analyzePath(output, false).exists) {
+            post({ id: data.id, bytes: null, note: DWG_WRITE_LIMIT, version: data.version });
+            return;
+          }
+          const bytes = writer.FS.readFile(output);
+          post({ id: data.id, bytes: bytes.slice(), version: data.version });
+        } finally {
+          if (writer.FS.analyzePath(input, false).exists) writer.FS.unlink(input);
+          if (writer.FS.analyzePath(output, false).exists) writer.FS.unlink(output);
+        }
         return;
       }
       const lib = await module(data.wasmUrl);

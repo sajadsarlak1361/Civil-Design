@@ -81,31 +81,66 @@ function readInWorker(bytes: Uint8Array): Promise<DwgImport> {
   });
 }
 
-async function resolveOda(engine: 'auto' | 'libredwg' | 'oda', odaPath: string): Promise<{ path: string } | null> {
-  if (engine === 'libredwg' || !desktopAvailable()) return null;
+async function probeConverter(odaPath: string): Promise<{ path: string } | null> {
+  if (!desktopAvailable()) return null;
   const probe = await probeOda(odaPath);
-  if (engine === 'oda' && !probe.found) throw new Error(probe.message || ODA_MISSING);
   if (!probe.found) return null;
   return { path: probe.path };
 }
 
+function writeInWorker(dxf: string, version: string): Promise<Uint8Array | null> {
+  return new Promise((resolve, reject) => {
+    void Promise.all([worker(), wasmHref()]).then(([thread, url]) => {
+      const id = Math.floor(Math.random() * 1e9);
+      const onMessage = (event: MessageEvent<{ id?: number; bytes?: Uint8Array | null; error?: string }>) => {
+        if (event.data?.id !== id) return;
+        thread.removeEventListener('message', onMessage);
+        if (event.data.error) reject(new Error(event.data.error));
+        else resolve(event.data.bytes ?? null);
+      };
+      thread.addEventListener('message', onMessage);
+      thread.postMessage({ id, op: 'write', dxf, version, wasmUrl: url });
+    }, reject);
+  });
+}
+
 export async function openDwg(name: string, bytes: Uint8Array): Promise<DwgImport> {
   const settings = readDwgSettings();
-  const oda = await resolveOda(settings.engine, settings.odaPath);
-  if (oda) {
+  if (settings.engine === 'oda') {
+    const oda = await probeConverter(settings.odaPath);
+    if (!oda) throw new Error(ODA_MISSING);
     const dxf = await convertOda(oda.path, name, bytes, 'ACAD2018', 'DXF');
     return fromDxf(dxf, dwgVersion('ACAD2018').label);
   }
-  return readInWorker(bytes);
+  try {
+    return await readInWorker(bytes);
+  } catch (error) {
+    if (settings.engine === 'libredwg') throw error;
+    const oda = await probeConverter(settings.odaPath);
+    if (!oda) throw error;
+    const dxf = await convertOda(oda.path, name, bytes, 'ACAD2018', 'DXF');
+    return fromDxf(dxf, dwgVersion('ACAD2018').label);
+  }
 }
 
 export async function saveDwg(model: DxfModel, unit: LinearUnit): Promise<DwgSave> {
   const settings = readDwgSettings();
   const encoded = new TextEncoder().encode(drawingToDxf(model, unit));
-  const oda = await resolveOda(settings.engine, settings.odaPath);
-  if (oda) {
+  if (settings.engine === 'oda') {
+    const oda = await probeConverter(settings.odaPath);
+    if (!oda) throw new Error(ODA_MISSING);
     const bytes = await convertOda(oda.path, 'drawing.dxf', encoded, settings.version, 'DWG');
     return { extension: 'dwg', bytes, note: `Wrote ${dwgVersion(settings.version).label} with ODA File Converter.` };
+  }
+  if (typeof window !== 'undefined' && typeof Worker !== 'undefined') {
+    try {
+      const written = await writeInWorker(new TextDecoder().decode(encoded), dwgVersion(settings.version).libre);
+      if (written && written.byteLength > 0) {
+        return { extension: 'dwg', bytes: written, note: `Wrote ${dwgVersion(settings.version).label} with LibreDWG.` };
+      }
+    } catch {
+      // The bundled module has no DWG writer. The DXF below is the offline file.
+    }
   }
   return { extension: 'dxf', bytes: encoded, note: DWG_WRITE_LIMIT };
 }

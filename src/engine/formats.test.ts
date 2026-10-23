@@ -1,3 +1,5 @@
+import { readFileSync } from 'node:fs';
+import { resolve } from 'node:path';
 import { describe, expect, it } from 'vitest';
 import { drawingToDxf, parseDxf, binaryLineDxf } from './formats/dxfDoc';
 import { dwgAvailable, DWG_VERDICT } from './formats/dwg';
@@ -61,6 +63,14 @@ describe('drawing DXF', () => {
   it('reads a binary LINE', () => {
     const model = parseDxf(binaryLineDxf());
     expect(model.entities[0]).toMatchObject({ type: 'line', a: { x: 1, y: 2, z: 3 }, b: { x: 4, y: 5, z: 6 } });
+  });
+
+  it('opens the DXF fixture as a drawing', () => {
+    const bytes = readFileSync(resolve('src/engine/formats/fixtures/entities.dxf'));
+    expect(classifyFile('entities.dxf', bytes).kind).toBe('dxf');
+    const model = parseDxf(bytes);
+    expect(model.entities.some((entity) => entity.type === 'line')).toBe(true);
+    expect(model.layers.some((layer) => layer.toLowerCase() === 'road')).toBe(true);
   });
 });
 
