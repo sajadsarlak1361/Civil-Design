@@ -430,7 +430,8 @@ export function Scene3D({ active = true, bind = false }: { active?: boolean; bin
     const onKey = (event: KeyboardEvent) => {
       if (getWorkspace().locomotion === 'none') return;
       const target = event.target;
-      if (target instanceof HTMLInputElement || target instanceof HTMLTextAreaElement || (target instanceof HTMLElement && target.isContentEditable)) return;
+      const commandField = target instanceof HTMLElement && Boolean(target.closest('.command-dock'));
+      if (!commandField && (target instanceof HTMLInputElement || target instanceof HTMLTextAreaElement || (target instanceof HTMLElement && target.isContentEditable))) return;
       const key = event.key.toLowerCase();
       const direction =
         key === 'arrowup' || key === 'w' ? 'forward'
