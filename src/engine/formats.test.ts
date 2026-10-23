@@ -15,6 +15,7 @@ import { FORMAT_CATALOG } from './formats/status';
 import { parseLandXml, surfaceToLandXml } from './landxml';
 import { parsePointFile, pointsToText } from './points';
 import { v3 } from './drafting';
+import { bindView, importDxf } from '../commands/runtime';
 
 const grid = (): GridRaster => ({
   cols: 2,
@@ -71,6 +72,31 @@ describe('drawing DXF', () => {
     const model = parseDxf(bytes);
     expect(model.entities.some((entity) => entity.type === 'line')).toBe(true);
     expect(model.layers.some((layer) => layer.toLowerCase() === 'road')).toBe(true);
+  });
+
+  it('frames an opened DXF in the current view', () => {
+    const framed: { x: number; y: number }[] = [];
+    bindView({
+      zoomExtents() {},
+      zoomWindow(a, b) {
+        framed.push(a, b);
+      },
+      zoomScale() {},
+      zoomPrevious() {},
+      panBy() {},
+      panDisplacement() {},
+      markOriginal() {},
+      zoomOriginal() {},
+      redraw() {},
+    });
+    try {
+      importDxf(parseDxf(readFileSync(resolve('src/engine/formats/fixtures/entities.dxf'))));
+      expect(framed).toHaveLength(2);
+      expect(framed[1].x).toBeGreaterThan(framed[0].x);
+      expect(framed[1].y).toBeGreaterThan(framed[0].y);
+    } finally {
+      bindView(null);
+    }
   });
 });
 

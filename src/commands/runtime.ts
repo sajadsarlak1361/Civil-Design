@@ -3,6 +3,7 @@ import {
   DrawingModel,
   applyConstraint,
   bindDrawingHistory,
+  drawingBounds,
   drawingDocFromFile,
   emptyDrawing,
   entityBounds,
@@ -269,6 +270,7 @@ export function importDrawing(entities: DrawEntity[], layers: string[], label: s
   for (const entity of entities) model.add({ ...entity, id: model.nextId() });
   model.emit();
   publishView();
+  frameImported();
 }
 
 export function importDxf(modelIn: DxfModel): void {
@@ -320,6 +322,14 @@ export function importDwgModel(imported: DwgImport): void {
   }
   for (const note of imported.notes) say(note, 'message');
   publishView();
+  frameImported();
+}
+
+function frameImported(): void {
+  const box = drawingBounds(model.doc);
+  const view = getView();
+  if (!box || !view) return;
+  view.zoomWindow({ x: box.minX, y: box.minY }, { x: box.maxX, y: box.maxY });
 }
 
 function commandDashXref(line: string): void {

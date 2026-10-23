@@ -13,7 +13,7 @@ import { heavyBinary, heavyText, readDemOffThread, readGeoTiffOffThread, readLas
 import { resizePool } from './engine/pool';
 import { subscribeTasks, taskSnapshot, tasks } from './engine/tasks';
 import type { TaskHandle } from './engine/tasks';
-import { bindHost, getCommandSnapshot, getDrawingModel, importDrawing, importDxf, importDwgModel, installDrawingHistory, reportLine, subscribeCommandUi, syncToolPrompt } from './commands/runtime';
+import { bindHost, getCommandSnapshot, getDrawingModel, importDrawing, importDxf, importDwgModel, installDrawingHistory, reportLine, subscribeCommandUi, subscribeDrawing, syncToolPrompt } from './commands/runtime';
 import { openDwg, saveDwg } from './engine/formats/dwgEngine';
 import { DwgSettingsDialog } from './components/DwgSettingsDialog';
 import { CommandLine } from './components/CommandLine';
@@ -75,6 +75,7 @@ function Shell() {
   const [meshDialog, setMeshDialog] = useState<null | 'create' | 'section'>(null);
   const [dwgSettings, setDwgSettings] = useState(false);
   const units = unitLabels(project.state.unit);
+  const drawingEntities = useSyncExternalStore(subscribeDrawing, () => getDrawingModel().doc.entities.length, () => 0);
   const ingestRef = useRef<(name: string, bytes: Uint8Array) => void>(() => {});
 
   useEffect(() => {
@@ -822,7 +823,7 @@ function Shell() {
             </section>
           {project.state.command && <CommandPanel />}
           {project.state.booting && <div className="empty">Building sample terrain…</div>}
-          {!project.state.booting && project.state.surfaces.length === 0 && (
+          {!project.state.booting && project.state.surfaces.length === 0 && drawingEntities === 0 && (
             <div className="empty">
               <h2>No surfaces yet</h2>
               <p>Import points or a LandXML surface, or open the bundled sample terrain.</p>
