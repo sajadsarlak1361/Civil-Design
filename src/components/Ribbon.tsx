@@ -145,7 +145,7 @@ export const Ribbon = memo(function Ribbon() {
         {tab === 'Manage' && (
           <>
             <CommandPanel title="CAD Standards" items={[['Layers', 'LAYER'], ['Purge', 'PURGE'], ['Select Similar', 'SELECTSIMILAR']]} />
-            <CommandPanel title="Cleanup" items={[['Overkill', 'OVERKILL'], ['Regen', 'REGEN'], ['Audit', 'REGENALL']]} />
+            <CommandPanel title="Cleanup" items={[['Overkill', 'OVERKILL'], ['Regen', 'REGEN'], ['Audit', 'AUDIT']]} />
           </>
         )}
         {tab === 'Output' && <OutputTab />}

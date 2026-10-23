@@ -35,6 +35,7 @@ import {
   stationTicks,
   suggestContourInterval,
   surfaceProfile,
+  depthPoints,
   volumeTinToTin,
   volumeToDatum,
   type AlignmentRecord,
@@ -499,6 +500,7 @@ interface ProjectApi {
   setBreaklineElevation: (value: string) => void;
   setVolumeSetup: (patch: Partial<VolumeSetup>) => void;
   runVolume: () => void;
+  createVolumeSurface: () => void;
   setShowVolumeMap: (show: boolean) => void;
   setView: (view: ViewMode) => void;
   setExaggeration: (value: number) => void;
@@ -1441,6 +1443,45 @@ const alignments = read.alignments.map((item) => ({
       setVolumeSetup: (setupPatch) => {
         const current = stateRef.current;
         dispatch({ type: 'patch', patch: { volumeSetup: { ...current.volumeSetup, ...setupPatch }, volumeResult: null } });
+      },
+      createVolumeSurface: () => {
+        const current = stateRef.current;
+        const tins = current.surfaces.filter((surface) => !isMeshSurface(surface) && surface.triangles.length > 0 && surface.points.length >= 3);
+        const base = tins.find((surface) => surface.id === current.volumeSetup.baseId) ?? tins.find((surface) => surface.id === current.activeId) ?? tins[0];
+        if (!base) {
+          dispatch({ type: 'patch', patch: { status: 'Create a TIN surface before a volume surface.' } });
+          return;
+        }
+        const named = current.volumeSetup.comparisonId ? tins.find((surface) => surface.id === current.volumeSetup.comparisonId && surface.id !== base.id) : undefined;
+        const other = named ?? tins.find((surface) => surface.id !== base.id);
+        const useDatum = current.volumeSetup.mode === 'datum' || !other;
+        const datum = current.volumeSetup.datum;
+        const points = depthPoints(base.points, (x, y) => (useDatum || !other ? datum : elevationAt(other.points, other.triangles, x, y)));
+        if (points.length < 3) {
+          dispatch({ type: 'patch', patch: { status: 'The surfaces do not overlap, so there is no volume surface.' } });
+          return;
+        }
+        const name = useDatum || !other ? `Volume ${base.name}` : `Volume ${base.name} - ${other.name}`;
+        const created = makeSurface(name, points, { index: current.surfaces.length, source: 'points', style: { showElevation: true, showContours: true } });
+        const result = useDatum || !other ? volumeToDatum(base.points, base.triangles, datum) : volumeTinToTin(base.points, base.triangles, other.points, other.triangles);
+        dispatch({
+          type: 'patch',
+          patch: {
+            surfaces: [...current.surfaces, created],
+            activeId: created.id,
+            volumeResult: result,
+            showVolumeMap: result.cutArea + result.fillArea > 0,
+            volumeSetup: {
+              ...current.volumeSetup,
+              baseId: base.id,
+              mode: useDatum || !other ? 'datum' : 'surface',
+              comparisonId: other && !useDatum ? other.id : current.volumeSetup.comparisonId,
+            },
+            view: 'plan',
+            status: `Volume surface "${created.name}": cut ${Math.round(result.cut).toLocaleString()} · fill ${Math.round(result.fill).toLocaleString()}.`,
+            fitToken: current.fitToken + 1,
+          },
+        });
       },
       runVolume: () => {
         const task = tasks.start({

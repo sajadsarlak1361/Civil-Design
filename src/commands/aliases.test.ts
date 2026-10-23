@@ -105,7 +105,7 @@ describe('classic CAD alias file', () => {
     expect(resolveToken('DEL')).toMatchObject({ source: 'external', known: true, implemented: false });
     expect(resolveToken('XYZ').known).toBe(false);
     expect(unknownMessage('XYZ')).toContain('Unknown command "XYZ"');
-    expect(unavailableMessage('EXTRUDE')).toBe('EXTRUDE: not yet available in Civil Design');
+    expect(unavailableMessage('EXTRUDE')).toBe('EXTRUDE: that command is not in this build.');
     const user = new Map([['CREATESURFACE', 'LINE']]);
     expect(resolveToken('CREATESURFACE', user).command).toBe('LINE');
     for (const row of aliasRows()) {

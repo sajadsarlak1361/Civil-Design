@@ -29,13 +29,13 @@ This repository is [sajadsarlak1361/Civil-Design](https://github.com/sajadsarlak
 - Surfaces are Delaunay TINs, with boundaries, breaklines, contours, elevation and slope shading, and TIN-to-TIN or surface-to-datum volumes.
 - `CREATE3DMESH` builds a 3D mesh with ball pivoting, so a scan can keep a wall or an overhang. `MESHSECTION` cuts that mesh on a vertical plane and reports overbreak and underbreak against a design section.
 - Alignments take tangents, circular curves, and Euler spirals. Profiles, sample lines, sections, offset alignments, superelevation, assemblies, corridors, intersections, grading, parcels, and mass haul are on the design ribbon.
-- File formats include the Civil Design project, DXF, DWG and DWT (read through LibreDWG), LandXML, point files, ASCII DEM, a limited GeoTIFF, LAS 1.2, shapefile, images, PDF plot, and OBJ, STL, and glTF meshes. LAZ is listed and disabled.
+- File formats include the Civil Design project, DXF, DWG and DWT (read through LibreDWG), LandXML, point files, ASCII DEM, a limited GeoTIFF, LAS 1.2, shapefile, images, PDF plot, and OBJ, STL, and glTF meshes. LAZ opens the file dialog after the command line explains that a decompressor is not bundled.
 - Heavy TIN builds use a worker pool. A cloud of 25,000 points or more triangulates off the main thread. A mesh of 800 points or more is rebuilt in its own worker. DWG reading runs in a worker.
 - The page does not request the network after it loads. Fonts, the TIN worker, and LibreDWG are inside the build.
 
 Pipe networks and the survey tools (field book, figures, traverse adjustment) are implemented in `src/engine` and switched off in `src/features.ts`. The ribbon hides them. Typing those commands answers `not available in this version`.
 
-A familiar CAD command name that Civil Design has not built answers `not yet available in Civil Design`. The full list of commands that do run is in [docs/commands-and-shortcuts.md](docs/commands-and-shortcuts.md).
+A familiar CAD command name that Civil Design has not built answers `that command is not in this build`. The full list of commands that do run is in [docs/commands-and-shortcuts.md](docs/commands-and-shortcuts.md).
 
 ## Download
 

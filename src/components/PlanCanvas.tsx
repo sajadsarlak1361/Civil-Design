@@ -294,6 +294,12 @@ export function PlanCanvas({ active = true }: { active?: boolean }) {
           cameraRef.current = { ...cameraRef.current, scale: cameraRef.current.scale * factor };
           draw();
         },
+        zoomCenter: (point, factor) => {
+          if (!(factor > 0)) return;
+          pushCamera();
+          cameraRef.current = { ...cameraRef.current, cx: point.x, cy: point.y, scale: cameraRef.current.scale * factor };
+          draw();
+        },
         zoomPrevious: () => {
           const previous = historyRef.current.pop();
           if (!previous) return;

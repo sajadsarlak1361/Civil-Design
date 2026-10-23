@@ -18,6 +18,8 @@ import {
 } from '../commands/runtime';
 import { onUi, requestUi, type UiRequest } from '../lib/uiBus';
 import { DWG_SETTINGS, FILE_ATTACH, FILE_EXPORT, FILE_IMPORT, type FileMenuAction } from './fileMenu';
+import { detachXref, getXrefDoc, reloadXref, subscribeXrefs, updateXrefs } from '../engine/xref';
+import { desktopAvailable, desktopOpenPath } from '../lib/desktopFiles';
 import { recentFiles } from '../lib/recentFiles';
 import { applyPlan, panDirection, restoreView, toggleChrome } from '../view/viewCommands';
 import {
@@ -99,9 +101,9 @@ export function MenuBar() {
         </Sub>
         <Sep />
         <Sub label="Recent Files">
-          {recentFiles().length === 0 && <Item label="No recent files" disabled onClick={() => {}} />}
+          {recentFiles().length === 0 && <Item label="Open…" onClick={() => go(() => runCommand('OPEN'))} />}
           {recentFiles().map((name) => (
-            <Item key={name} label={name} onClick={() => go(() => runCommand('OPEN'))} />
+            <Item key={name} label={name} onClick={() => go(() => openRecent(name))} />
           ))}
         </Sub>
         <Sep />
@@ -128,7 +130,7 @@ export function MenuBar() {
         <Item label="Clear" shortcut="Del" onClick={() => go(eraseSelection)} />
         <Item label="Select All" shortcut="Ctrl+A" onClick={() => go(() => runCommand('AI_SELALL'))} />
         <Sep />
-        <Item label="OLE Links…" disabled title="OLE links are not available offline." onClick={() => {}} />
+        <Item label="OLE Links…" onClick={() => go(() => runCommand('OLELINKS'))} />
         <Sep />
         <Item label="Find and Replace…" onClick={() => go(() => runCommand('FIND'))} />
         <Item label="Quick Select…" onClick={() => go(() => runCommand('QSELECT'))} />
@@ -143,9 +145,9 @@ export function MenuBar() {
           <Item label="Realtime" onClick={() => go(() => startZoom())} />
           <Item label="Previous" onClick={() => go(() => startZoom('Previous'))} />
           <Item label="Window" onClick={() => go(() => startZoom('Window'))} />
-          <Item label="Dynamic" onClick={() => go(() => startZoom('Window'))} />
-          <Item label="Scale" onClick={() => go(() => startZoom())} />
-          <Item label="Center" onClick={() => go(() => startZoom())} />
+          <Item label="Dynamic" onClick={() => go(() => startZoom('Dynamic'))} />
+          <Item label="Scale" onClick={() => go(() => startZoom('Scale'))} />
+          <Item label="Center" onClick={() => go(() => startZoom('Center'))} />
           <Item label="Object" onClick={() => go(zoomSelection)} />
           <Item label="In" onClick={() => go(() => startZoom('2x'))} />
           <Item label="Out" onClick={() => go(() => startZoom('0.5x'))} />
@@ -154,7 +156,7 @@ export function MenuBar() {
         </Sub>
         <Sub label="Pan">
           <Item label="Realtime" onClick={() => go(() => runCommand('PAN'))} />
-          <Item label="Point" onClick={() => go(() => runCommand('PAN'))} />
+          <Item label="Point" onClick={() => go(() => runCommand('-PAN'))} />
           <Item label="Left" onClick={() => go(() => panDirection('left'))} />
           <Item label="Right" onClick={() => go(() => panDirection('right'))} />
           <Item label="Up" onClick={() => go(() => panDirection('up'))} />
@@ -165,9 +167,9 @@ export function MenuBar() {
           <Item label="Free Orbit" onClick={() => go(() => runCommand('3DFORBIT'))} />
           <Item label="Continuous Orbit" onClick={() => go(() => runCommand('3DCORBIT'))} />
         </Sub>
-        <Item label="Camera" disabled title="Camera is not available in this build." onClick={() => {}} />
-        <Item label="Walk" disabled title="Walk is not available in this build." onClick={() => {}} />
-        <Item label="Fly" disabled title="Fly is not available in this build." onClick={() => {}} />
+        <Item label="Camera" onClick={() => go(() => runCommand('CAMERA'))} />
+        <Item label="Walk" onClick={() => go(() => runCommand('3DWALK'))} />
+        <Item label="Fly" onClick={() => go(() => runCommand('3DFLY'))} />
         <Sep />
         <Item label="Clean Screen" shortcut="Ctrl+0" checked={ws.cleanScreen} onClick={() => go(() => runCommand(ws.cleanScreen ? 'CLEANSCREENOFF' : 'CLEANSCREENON'))} />
         <Sep />
@@ -179,7 +181,7 @@ export function MenuBar() {
             ))}
           </Sub>
           <Sub label="Join">
-            {ws.slots.filter((slot) => slot.id !== ws.activeId).length === 0 && <Item label="One viewport" disabled onClick={() => {}} />}
+            <Item label="Single viewport" checked={ws.layout === 1} onClick={() => go(() => runViewportLayout(1))} />
             {ws.slots.filter((slot) => slot.id !== ws.activeId).map((slot) => (
               <Item key={slot.id} label={PRESET_LABELS[slot.preset === 'custom' ? 'top' : slot.preset]} onClick={() => go(() => joinActive(slot.id))} />
             ))}
@@ -206,7 +208,7 @@ export function MenuBar() {
           <Sep />
           <Item label="Visual Styles Manager…" onClick={() => go(() => runCommand('VSCURRENT'))} />
         </Sub>
-        <Item label="Render" disabled title="Render is not available in this build." onClick={() => {}} />
+        <Item label="Render" onClick={() => go(() => runCommand('RENDER'))} />
         <Sep />
         <Sub label="Display">
           <Sub label="UCS Icon">
@@ -232,6 +234,7 @@ export function MenuBar() {
         <Item label={`About ${APP_NAME}`} onClick={() => { close(); setAbout(true); }} />
       </Root>
       {about && <AboutDialog onClose={() => setAbout(false)} />}
+      {dialog === 'links' && <LinksDialog onClose={() => setDialog(null)} />}
       {dialog === 'find' && <FindDialog onClose={() => setDialog(null)} />}
       {dialog === 'qselect' && <QuickDialog onClose={() => setDialog(null)} />}
       {dialog === 'paste-special' && <PasteDialog onClose={() => setDialog(null)} />}
@@ -287,6 +290,46 @@ function Item({ label, shortcut, onClick, disabled, title, checked }: { label: s
 
 function Sep() {
   return <div className="menu-sep" role="separator" />;
+}
+
+function openRecent(name: string): void {
+  if (desktopAvailable() && /[/\\]/.test(name)) {
+    void desktopOpenPath(name).catch(() => postMessage(`Could not open ${name}.`));
+    return;
+  }
+  postMessage(`Choose ${name} in the file dialog.`);
+  runCommand('OPEN');
+}
+
+function LinksDialog({ onClose }: { onClose: () => void }) {
+  const [doc, setDoc] = useState(getXrefDoc);
+  useEffect(() => subscribeXrefs(() => setDoc({ ...getXrefDoc() })), []);
+  return (
+    <div className="modal-back" role="presentation" onMouseDown={onClose}>
+      <div className="modal" role="dialog" aria-label="Links" onMouseDown={(event) => event.stopPropagation()}>
+        <header>
+          <h2>Links</h2>
+          <p>Drawings and images linked into this model.</p>
+        </header>
+        <div className="modal-body">
+          {doc.records.length === 0 && <p>No linked drawings or images.</p>}
+          {doc.records.map((record) => (
+            <p key={record.id}>
+              {record.name} · {record.kind} · {record.status}
+              {' '}
+              <button type="button" onClick={() => updateXrefs((current) => reloadXref(current, record.id, record.snapshot, record.snapshot != null))}>Reload</button>
+              {' '}
+              <button type="button" onClick={() => updateXrefs((current) => detachXref(current, record.id))}>Detach</button>
+            </p>
+          ))}
+        </div>
+        <footer>
+          <button type="button" onClick={() => { onClose(); runCommand('XATTACH'); }}>Attach</button>
+          <button type="button" onClick={onClose}>Close</button>
+        </footer>
+      </div>
+    </div>
+  );
 }
 
 function AboutDialog({ onClose }: { onClose: () => void }) {

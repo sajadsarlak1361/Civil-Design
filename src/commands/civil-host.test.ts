@@ -34,6 +34,7 @@ function host(open: (command: string) => void): CadHost {
     redoProject: () => false,
     newProject: noop,
     setUnit: noop,
+    createVolumeSurface: noop,
   };
 }
 
@@ -70,5 +71,13 @@ describe('civil commands on the command line', () => {
     expect(after).toContain('TRAVERSEEDITOR: not available in this version');
     expect(after).toContain('CREATEPIPENETWORK: not available in this version');
     expect(opened).toEqual(commands);
+  });
+
+  it('runs the volume surface command on the host', () => {
+    let built = false;
+    bindHost({ ...host(() => {}), createVolumeSurface: () => { built = true; } });
+    runCommand('CREATESURFACECOMPOSITE');
+    expect(built).toBe(true);
+    expect(getCommandSnapshot().lines.map((line) => line.text).join('\n')).not.toContain('not in this build');
   });
 });

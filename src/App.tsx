@@ -128,7 +128,7 @@ function Shell() {
                 try {
                   const model = await desktopReadDxf(file.path, file.byteLength);
                   task.finish();
-                  rememberRecent(file.name);
+                  rememberRecent(file.path || file.name);
                   importDxf(model);
                 } catch (error) {
                   task.finish();
@@ -136,7 +136,10 @@ function Shell() {
                 }
                 return;
               }
-              if (file) ingestRef.current(file.name, file.bytes);
+              if (file) {
+                rememberRecent(file.path || file.name);
+                ingestRef.current(file.name, file.bytes);
+              }
             } catch (error) {
               window.alert(error instanceof Error ? error.message : 'Could not open that file.');
             }
@@ -225,6 +228,7 @@ function Shell() {
       redoProject: () => projectRef.current.redoSurface(),
       newProject: () => projectRef.current.newProject(),
       setUnit: (unit) => projectRef.current.setUnit(unit),
+      createVolumeSurface: () => projectRef.current.createVolumeSurface(),
     });
   }, []);
 
@@ -546,7 +550,7 @@ function Shell() {
                 try {
                   const model = await desktopReadDxf(path, size);
                   task.finish();
-                  rememberRecent(name);
+                  rememberRecent(path);
                   importDxf(model);
                 } catch (error) {
                   task.finish();
@@ -609,6 +613,30 @@ function Shell() {
   }, []);
 
   useEffect(() => onUi((request) => {
+    if (request === 'render') {
+      setVisualStyle('realistic');
+      projectRef.current.setView('3d');
+      window.setTimeout(() => {
+        const canvases = [...document.querySelectorAll('canvas')].filter((node): node is HTMLCanvasElement => node instanceof HTMLCanvasElement && node.getBoundingClientRect().width > 8);
+        const canvas = canvases.find((node) => node.classList.contains('vp-canvas') || node.classList.contains('scene-canvas')) ?? canvases[0];
+        if (!canvas) {
+          postMessage('Nothing on screen to render.');
+          return;
+        }
+        const slug = fileSlug(projectRef.current.state.name);
+        canvas.toBlob((blob) => {
+          if (!blob) {
+            postMessage('Could not render the view.');
+            return;
+          }
+          void blob.arrayBuffer().then((buffer) => {
+            downloadBytes(`${slug}-render.png`, new Uint8Array(buffer), 'image/png');
+            postMessage('Rendered the view to a PNG.');
+          });
+        }, 'image/png');
+      }, 400);
+      return;
+    }
     if (request === 'dwg-settings') {
       setDwgSettings(true);
       return;

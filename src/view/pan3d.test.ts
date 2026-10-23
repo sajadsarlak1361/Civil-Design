@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { orbitConstrained, panGrab, projectPoint, rayFromPixel, targetDepth, viewBasis, viewDepth, zoomToward, type Pose, type Vec3 } from './pan3d';
+import { orbitConstrained, panGrab, projectPoint, rayFromPixel, stepLocomotion, targetDepth, viewBasis, viewDepth, zoomToward, type Pose, type Vec3 } from './pan3d';
 
 const pose: Pose = { position: [0, 0, 10], target: [0, 0, 0], up: [0, 1, 0] };
 const size = { fov: 90, aspect: 1, width: 200, height: 200 };
@@ -48,6 +48,19 @@ describe('3D screen pan', () => {
     const stuck = projectPoint(next, size.fov, size.aspect, focus, size.width, size.height);
     expect(stuck?.x).toBeCloseTo(pixel!.x);
     expect(stuck?.y).toBeCloseTo(pixel!.y);
+  });
+
+  it('walks on the horizontal and flies along the look direction', () => {
+    const walked = stepLocomotion(pose, 'forward', 4, false);
+    expect(walked.position[2]).toBeCloseTo(6);
+    expect(walked.target[2]).toBeCloseTo(-4);
+    expect(walked.position[1]).toBeCloseTo(pose.position[1]);
+    const flown = stepLocomotion({ position: [0, 10, 0], target: [0, 0, 0], up: [0, 0, -1] }, 'forward', 2, true);
+    expect(flown.position[1]).toBeLessThan(10);
+    expect(flown.target[1]).toBeLessThan(0);
+    const lifted = stepLocomotion(pose, 'up', 3, true);
+    expect(lifted.position[1]).toBeCloseTo(3);
+    expect(lifted.target[1]).toBeCloseTo(3);
   });
 
   it('orbits around the target and leaves the radius alone', () => {

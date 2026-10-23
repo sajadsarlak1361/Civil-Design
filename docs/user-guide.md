@@ -1,6 +1,6 @@
 # User guide
 
-The shell is a menu bar, a ribbon, the drawing, a command line, and palettes. Commands you can type are listed in [commands-and-shortcuts.md](commands-and-shortcuts.md). A name this build has not built answers `not yet available in Civil Design`.
+The shell is a menu bar, a ribbon, the drawing, a command line, and palettes. Commands you can type are listed in [commands-and-shortcuts.md](commands-and-shortcuts.md). A name this build has not built answers `that command is not in this build`.
 
 ## Menu bar
 
@@ -10,13 +10,13 @@ The shell is a menu bar, a ribbon, the drawing, a command line, and palettes. Co
 | --- | --- |
 | New | `NEW`. Starts a project. Ctrl+N. |
 | Open | `OPEN`. One picker for the project and the import formats. Ctrl+O. |
-| Import | Points, LandXML, DXF, DWG / DWT, DEM / GeoTIFF, LAS, shapefile, image, OBJ, STL, glTF. LAZ is shown and disabled. |
+| Import | Points, LandXML, DXF, DWG / DWT, DEM / GeoTIFF, LAS, shapefile, image, OBJ, STL, glTF. LAZ runs `LASZIP`: the command line explains the missing decompressor, then the file dialog opens. |
 | Attach | `XATTACH`. Attach a DXF, DWG, or Civil Design drawing as an xref. |
 | DWG Settings | Engine Auto, LibreDWG, or ODA, the ODA path, and the DWG version used when ODA writes. |
 | Save | `QSAVE`. Project JSON. Ctrl+S. |
 | Save As | `SAVEAS`. The same project save. Ctrl+Shift+S. On the desktop the filter is `.fieldline`. |
-| Export | DXF, DWG, LandXML, points CSV, PDF, PNG, SVG, OBJ, STL, glTF, volume CSV. LAZ is disabled. DWG export follows the DWG write rules in [file-formats.md](file-formats.md). |
-| Recent Files | Names remembered locally. Choosing one runs `OPEN`. |
+| Export | DXF, DWG, LandXML, points CSV, PDF, PNG, SVG, OBJ, STL, glTF, volume CSV. LAZ runs `LASZIP`, same as Import. DWG export follows the DWG write rules in [file-formats.md](file-formats.md). |
+| Recent Files | Names remembered locally. A stored path reopens on the desktop. A name without a path runs `OPEN` and asks you to choose that file. An empty list is an Open item. |
 | Close, Exit | `QUIT`. In the browser the command line says to close the tab. |
 
 ### Edit
@@ -28,7 +28,7 @@ The shell is a menu bar, a ribbon, the drawing, a command line, and palettes. Co
 | Paste, Paste as Block, Paste to Original Coordinates, Paste Special | `PASTECLIP`, `PASTEBLOCK`, `PASTEORIG`, `PASTESPEC`. Ctrl+V and Ctrl+Shift+V. Paste Special can place Civil Design entities or plain text. |
 | Clear | Erase the selection. Delete. |
 | Select All | `AI_SELALL`. Ctrl+A, unless the command line is focused. |
-| OLE Links | Disabled. The tooltip says OLE links are not available offline. |
+| OLE Links | `OLELINKS`. Lists linked drawings and images. Reload, detach, or attach. |
 | Find and Replace | `FIND`. Text in the drawing. |
 | Quick Select | `QSELECT`. Filter by property. Opens with the Properties palette. |
 | Select Similar | `SELECTSIMILAR`. Same entity type and layer. |
@@ -38,17 +38,19 @@ The shell is a menu bar, a ribbon, the drawing, a command line, and palettes. Co
 | Item | Action |
 | --- | --- |
 | Redraw, Regen, Regen All | `REDRAW` / `R`, `REGEN` / `RE`, `REGENALL` / `REA`. All three redraw the model. |
-| Zoom | Realtime (`ZOOM`), Previous, Window, Dynamic (same as Window), Scale, Center, Object (zoom to the selection), In (`2x`), Out (`0.5x`), All, Extents. |
-| Pan | Realtime and Point both run `PAN`. Left, Right, Up, and Down pan by a step. |
+| Zoom | Realtime (`ZOOM`), Previous, Window, Dynamic (a window zoom), Scale (asks for a factor), Center (a point, then a magnification), Object (zoom to the selection), In (`2x`), Out (`0.5x`), All, Extents. |
+| Pan | Realtime runs `PAN`. Point runs `-PAN` and asks for two points. Left, Right, Up, and Down pan by a step. |
 | Orbit | Constrained (`3DORBIT`), Free (`3DFORBIT`), Continuous (`3DCORBIT`). Drag in the 3D view. |
-| Camera, Walk, Fly | Disabled. |
+| Camera | `CAMERA`. Switches to the 3D view and saves it as Camera 1, Camera 2, and so on. |
+| Walk | `3DWALK`. Switches to the 3D view and steps forward. Arrow keys and WASD keep moving. Esc stops. |
+| Fly | `3DFLY`. Same as walk, and Q / E change height. |
 | Clean Screen | `CLEANSCREENON` / `CLEANSCREENOFF`. Ctrl+0. Hides the ribbon, panels, and status bar. |
-| Viewports | Named viewports (`VPORTS`). New layouts of 1, 2, 3, or 4 tiled model viewports. Join merges another viewport into the active one. |
+| Viewports | Named viewports (`VPORTS`). New layouts of 1, 2, 3, or 4 tiled model viewports. Join can return to a single viewport or merge another viewport into the active one. |
 | Named Views | `VIEW`. Save and restore a camera. |
 | 3D Views | Top, bottom, left, right, front, back, and the four isometric corners (SW, SE, NE, NW). Plan View → Current UCS runs `PLAN`. Plan View → World is the top preset. |
 | ViewCube, Navigation Bar | `VIEWCUBE`, `NAVBARDISPLAY`. |
 | Visual Styles | 2D Wireframe, Wireframe, Hidden, Realistic, Conceptual, Shaded, Shaded with Edges, X-Ray, and Elevation. Visual Styles Manager is `VSCURRENT`. |
-| Render | Disabled. |
+| Render | `RENDER`. Sets the realistic visual style and saves a PNG of the view. |
 | Display | UCS icon on, off, or at the origin. Text window (F2). Lineweights (`LWDISPLAY`). Grid. |
 | Toolbars | Properties, Layers, External References, Tool Palettes, Command Line (Ctrl+9), Status Bar. Each item shows or hides that chrome. |
 
@@ -108,7 +110,7 @@ Viewport tools (extents, pan, plan), model viewport layouts, named views, the vi
 
 ### Manage
 
-CAD Standards: Layers, Purge (unused block definitions), Select Similar. Cleanup: Overkill (duplicate geometry within a fuzz distance), Regen, and a button labeled Audit that runs `REGENALL` and redraws the model.
+CAD Standards: Layers, Purge (unused block definitions), Select Similar. Cleanup: Overkill (duplicate geometry within a fuzz distance), Regen, and Audit (`AUDIT`), which counts zero-length lines, duplicate ids, and objects whose layer is missing.
 
 ### Output
 
@@ -161,7 +163,7 @@ These section views sample TIN surfaces along an alignment. Tunnel sections thro
 
 ### Analyze
 
-Inquiry repeats distance, area, ID, and list. Volumes shows contours (`CONTOURS`) and a Volume Surface button that runs `CREATESURFACECOMPOSITE`. That command is not implemented. Compute a volume from the surface inspector, as described in [getting-started.md](getting-started.md).
+Inquiry repeats distance, area, ID, and list. Volumes shows contours (`CONTOURS`) and Volume Surface (`CREATESURFACECOMPOSITE`), which adds a TIN of comparison-minus-base elevation and reports cut and fill. The sample project already has two surfaces, so the button can run immediately.
 
 ## Layers and object properties
 
@@ -206,5 +208,4 @@ Plan view is View → 3D Views → Plan View, the Home view control, or `PLAN`.
 - Survey curve codes beyond begin, end, and close, and the survey ribbon (the flag is off)
 - A pipe-network rule editor, and the pipe ribbon (the flag is off)
 - Mass-haul free haul when a lobe's crest is wider than the free-haul distance
-- Camera, walk, fly, render, and OLE links
-- `CREATESURFACECOMPOSITE` and the other recognized surface-edit names listed in [commands-and-shortcuts.md](commands-and-shortcuts.md)
+- The other recognized surface-edit names listed in [commands-and-shortcuts.md](commands-and-shortcuts.md). `CREATESURFACECOMPOSITE` does run: Analyze → Volume Surface builds the depth TIN.

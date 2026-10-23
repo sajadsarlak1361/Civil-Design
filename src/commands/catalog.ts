@@ -2,7 +2,7 @@ import { isRetired } from '../features';
 import classicPgp from './classic.pgp?raw';
 import { HOME_COMMANDS, HOME_COMMAND_HELP } from './homeCatalog';
 
-/** Commands Civil Design actually runs. Every other known name gets a clear "not yet available" line. */
+/** Commands Civil Design actually runs. A known name with no handler reports that it is not in this build. */
 export const IMPLEMENTED_COMMANDS = [
   'LINE', 'PLINE', 'CIRCLE', 'ARC', 'RECTANG', 'POLYGON', 'POINT', 'TEXT', 'MTEXT',
   'MOVE', 'COPY', 'ROTATE', 'SCALE', 'MIRROR', 'OFFSET', 'TRIM', 'EXTEND', 'FILLET', 'CHAMFER',
@@ -19,7 +19,8 @@ export const IMPLEMENTED_COMMANDS = [
   'AI_SELALL', 'FIND', 'SELECTSIMILAR',
   'ORTHO', 'POLAR', 'OTRACK', 'DYNMODE',
   '3DORBIT', '3DFORBIT', '3DCORBIT', 'PLAN', 'CLEANSCREENON', 'CLEANSCREENOFF',
-'VPORTS', 'VIEW', 'UCSICON', 'NAVBARDISPLAY', 'VIEWCUBE', 'VSCURRENT',
+  'VPORTS', 'VIEW', 'UCSICON', 'NAVBARDISPLAY', 'VIEWCUBE', 'VSCURRENT',
+  'CAMERA', '3DWALK', '3DFLY', 'RENDER', 'OLELINKS', 'LASZIP', 'AUDIT', 'CREATESURFACECOMPOSITE',
   'XREF', 'XATTACH', 'IMAGEATTACH', 'XBIND', 'XCLIP',
   'CREATESURFACE', 'CREATE3DMESH', 'MESHSECTION', 'ADDPOINTFILE', 'LANDXMLIN', 'IMPORTPOINTS',
   'ADDSURFACEBOUNDARIES', 'ADDSURFACEBREAKLINES', 'CONTOURS', 'EDITSURFACEPROPERTIES',
@@ -81,7 +82,7 @@ export function parsePgp(text: string): { aliases: PgpAlias[]; externals: PgpExt
 export interface CivilCommand {
   name: string;
   description: string;
-  /** Ribbon placeholder title, when this command still opens the coming-soon panel. */
+  /** Optional side panel opened with the command. */
   soon?: { name: string; panel: string };
 }
 
@@ -186,6 +187,13 @@ export const FIELDLINE_COMMANDS: { name: string; description: string }[] = [
   { name: 'NAVBARDISPLAY', description: 'Toggle the navigation bar' },
   { name: 'VIEWCUBE', description: 'Toggle the ViewCube' },
   { name: 'VSCURRENT', description: 'Set the visual style' },
+  { name: 'CAMERA', description: 'Save the current 3D camera as a named view' },
+  { name: '3DWALK', description: 'Walk the 3D camera with the arrow keys' },
+  { name: '3DFLY', description: 'Fly the 3D camera, including up and down' },
+  { name: 'RENDER', description: 'Shade the view and save a PNG' },
+  { name: 'OLELINKS', description: 'List, reload, or detach linked drawings and images' },
+  { name: 'LASZIP', description: 'Explain the LAZ limit and open a LAS file' },
+  { name: 'AUDIT', description: 'Check the drawing for zero-length objects, duplicate ids, and missing layers' },
   { name: 'ORTHO', description: 'Toggle ortho mode (F8)' },
   { name: 'POLAR', description: 'Toggle polar tracking (F10)' },
   { name: 'OTRACK', description: 'Toggle object-snap tracking (F11)' },
@@ -301,7 +309,7 @@ export function soonFor(command: string): { name: string; panel: string } | unde
 }
 
 export function unavailableMessage(command: string): string {
-  return `${command}: not yet available in Civil Design`;
+  return `${command}: that command is not in this build.`;
 }
 
 export function unknownMessage(token: string): string {
@@ -409,7 +417,8 @@ export function helpText(): string[] {
   lines.push('Design commands');
   for (const command of CIVIL_COMMANDS) {
     if (isRetired(command.name)) continue;
-    lines.push(`  ${command.name}${IMPLEMENTED.has(command.name) ? '' : '  — not yet available'}  ${command.description}`);
+    if (!IMPLEMENTED.has(command.name)) continue;
+    lines.push(`  ${command.name}  ${command.description}`);
   }
   lines.push('', 'Drawing and inquiry');
   const draw = ['LINE', 'PLINE', 'CIRCLE', 'ARC', 'RECTANG', 'POLYGON', 'POINT', 'TEXT', 'MOVE', 'COPY', 'ROTATE', 'SCALE', 'MIRROR', 'OFFSET', 'TRIM', 'EXTEND', 'FILLET', 'CHAMFER', 'ERASE', 'EXPLODE', 'JOIN', 'STRETCH', 'ZOOM', 'PAN', 'DIST', 'ID', 'LIST', 'AREA', 'LAYER', 'UNDO', 'REDO'];
@@ -417,6 +426,6 @@ export function helpText(): string[] {
     const aliases = [...data.pgp.entries(), ...data.field.entries()].filter(([, command]) => command === name).map(([alias]) => alias);
     lines.push(`  ${name}${aliases.length ? `  (${aliases.slice(0, 6).join(', ')})` : ''}`);
   }
-  lines.push('', `${data.pgp.size} classic CAD aliases are recognised. An alias whose command is not built yet reports that instead of "Unknown command".`, 'ALIASEDIT stores your own aliases in this browser. F1 opens this list.');
+  lines.push('', `${data.pgp.size} classic CAD aliases are recognised. An alias whose command is not in this build reports that instead of "Unknown command".`, 'ALIASEDIT stores your own aliases in this browser. F1 opens this list.');
   return lines;
 }

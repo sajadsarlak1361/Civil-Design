@@ -1,13 +1,24 @@
 import { describe, expect, it } from 'vitest';
 import { buildTin } from './tin';
 import type { SurveyPoint } from './types';
-import { volumeTinToTin, volumeToDatum } from './volume';
+import { depthPoints, volumeTinToTin, volumeToDatum } from './volume';
 
 function tinFrom(points: SurveyPoint[]) {
   return buildTin(points);
 }
 
 describe('volumes', () => {
+  it('builds a depth surface from a comparison elevation', () => {
+    const points = depthPoints(
+      [
+        { x: 0, y: 0, z: 5 },
+        { x: 10, y: 0, z: 4 },
+      ],
+      (x) => (x === 0 ? 8 : null),
+    );
+    expect(points).toEqual([{ x: 0, y: 0, z: 3, description: 'DZ', role: 'survey', number: undefined }]);
+  });
+
   it('computes the volume of a flat box against a datum', () => {
     const tin = tinFrom([
       { x: 0, y: 0, z: 5 },

@@ -332,7 +332,7 @@ export function CommandLine({ collapsed = false, heightPx, onHeight }: { collaps
                 }}
               >
                 <span>{item.label}</span>
-                <em>{item.implemented ? item.description : 'not yet available'}</em>
+                <em>{item.description}</em>
               </button>
             </li>
           ))}

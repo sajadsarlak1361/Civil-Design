@@ -12,7 +12,7 @@ File → Import and File → Export list every format. A row Civil Design cannot
 | ASCII DEM | `.asc` | yes | yes | ESRI ASCII grid, and an XYZ grid of cell centers. |
 | GeoTIFF | `.tif`, `.tiff` | partial | partial | Uncompressed float32 with a tie point and a pixel scale. LZW, JPEG, Deflate, and PackBits are refused. |
 | LAS | `.las` | yes | yes | LAS 1.2, point record format 0 (20 bytes). |
-| LAZ | `.laz` | no | no | Greyed out. LAZ needs a decompressor that is not bundled. Export the cloud as LAS. |
+| LAZ | `.laz` | no | no | The menu item explains that a decompressor is not bundled, then opens the file dialog. A `.laz` file is still refused. Export the cloud as LAS. |
 | Shapefile | `.shp` | yes | yes | Point, polyline, and polygon. Attributes in `.dbf` are not read. |
 | Image | `.png`, `.jpg`, `.jpeg` | yes | partial | Attach reads width and height. PNG export is the current view. |
 | PDF | `.pdf` | no | yes | One-page Flate RGB plot. A PDF underlay is not bundled. |

@@ -146,6 +146,17 @@ export function volumeTinToTin(
   return result;
 }
 
+/** Elevations are comparison minus base, so the new surface is a depth model. */
+export function depthPoints(base: SurveyPoint[], zAt: (x: number, y: number) => number | null): SurveyPoint[] {
+  const points: SurveyPoint[] = [];
+  for (const point of base) {
+    const other = zAt(point.x, point.y);
+    if (other === null || !Number.isFinite(other)) continue;
+    points.push({ x: point.x, y: point.y, z: other - point.z, description: 'DZ', role: 'survey', number: point.number });
+  }
+  return points;
+}
+
 export function volumeSummary(result: VolumeResult): { cut: number; fill: number; net: number } {
   return { cut: result.cut, fill: result.fill, net: result.net };
 }
