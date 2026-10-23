@@ -1,6 +1,7 @@
 import { readFileSync } from 'node:fs';
 import { resolve } from 'node:path';
 import { describe, expect, it } from 'vitest';
+import { ODA_DOWNLOAD_URL, ODA_MISSING } from './dwg';
 import { saveDwg } from './dwgEngine';
 import { readDwgLibre } from './dwgLibre';
 import { mapDwgDatabase } from './dwgMap';
@@ -67,11 +68,57 @@ describe('LibreDWG sample', () => {
   });
 });
 
-describe('browser DWG save', () => {
-  it('writes a DXF when ODA File Converter is not available', async () => {
-    const saved = await saveDwg({ entities: [], faces: [], layers: [] }, 'm');
-    expect(saved.extension).toBe('dxf');
-    expect(new TextDecoder().decode(saved.bytes)).toContain('SECTION');
-    expect(saved.note).toContain('DXF');
+function header(bytes: Uint8Array): string {
+  return new TextDecoder().decode(bytes.slice(0, 6));
+}
+
+describe('LibreDWG DWG save', () => {
+  it('writes DWG 2000 offline and reads the edited geometry back', async () => {
+    const opened = await readDwgLibre(readFileSync(resolve('src/engine/formats/fixtures/entities.dwg')));
+    const entities = opened.entities.map((entity) =>
+      entity.type === 'line' && entity.a.x === 1 && entity.a.y === 2 ? { ...entity, b: { x: 9, y: 8, z: 7 } } : entity,
+    );
+    const saved = await saveDwg({ entities, faces: [], layers: opened.layers.map((layer) => layer.name) }, 'm');
+    expect(saved.extension).toBe('dwg');
+    expect(header(saved.bytes)).toBe('AC1015');
+    expect(saved.note).toContain('LibreDWG');
+    expect(saved.note).not.toContain(ODA_DOWNLOAD_URL);
+    const again = await readDwgLibre(saved.bytes);
+    const line = again.entities.find((entity) => entity.type === 'line' && entity.a.x === 1 && entity.a.y === 2);
+    expect(line && line.type === 'line' && line.b).toMatchObject({ x: 9, y: 8, z: 7 });
+    expect(again.entities.some((entity) => entity.type === 'circle' && Math.abs(entity.radius - 4) < 1e-3)).toBe(true);
+    expect(again.entities.some((entity) => entity.type === 'arc')).toBe(true);
+    expect(again.entities.some((entity) => entity.type === 'text' && entity.content.includes('STA'))).toBe(true);
+    expect(again.entities.some((entity) => entity.type === 'point' && Math.abs(entity.p.x - 8) < 1e-3)).toBe(true);
+    expect(again.entities.some((entity) => entity.type === 'polyline' && entity.vertices.length === 3)).toBe(true);
+  });
+
+  it('writes DWG 2004 when that version is selected', async () => {
+    const saved = await saveDwg(
+      { entities: [{ id: '1', type: 'line', layer: '0', color: 'bylayer', a: { x: 0, y: 0, z: 0 }, b: { x: 3, y: 4, z: 0 } }], faces: [], layers: ['0'] },
+      'm',
+      { engine: 'libredwg', odaPath: '', version: 'ACAD2004' },
+    );
+    expect(saved.extension).toBe('dwg');
+    expect(header(saved.bytes)).toBe('AC1018');
+    const again = await readDwgLibre(saved.bytes);
+    const line = again.entities.find((entity) => entity.type === 'line');
+    expect(line && line.type === 'line' && line.b).toMatchObject({ x: 3, y: 4, z: 0 });
+  });
+
+  it('writes DWG 2000 and names the download when a newer version has no converter', async () => {
+    const saved = await saveDwg(
+      { entities: [{ id: '1', type: 'circle', layer: '0', color: 'bylayer', center: { x: 1, y: 2, z: 0 }, radius: 5 }], faces: [], layers: ['0'] },
+      'm',
+      { engine: 'auto', odaPath: '', version: 'ACAD2018' },
+    );
+    expect(saved.extension).toBe('dwg');
+    expect(header(saved.bytes)).toBe('AC1015');
+    expect(saved.note).toContain('DWG 2000');
+    expect(saved.note).toContain('DWG 2018');
+    expect(saved.note).toContain(ODA_DOWNLOAD_URL);
+    const again = await readDwgLibre(saved.bytes);
+    expect(again.entities.some((entity) => entity.type === 'circle' && Math.abs(entity.radius - 5) < 1e-3)).toBe(true);
+    await expect(saveDwg({ entities: [], faces: [], layers: [] }, 'm', { engine: 'oda', odaPath: '', version: 'ACAD2018' })).rejects.toThrow(ODA_MISSING);
   });
 });

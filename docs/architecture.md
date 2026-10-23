@@ -54,6 +54,7 @@ A surface keeps its original survey points. Rebuilds triangulate from those poin
 | `src/engine/heavy.worker.ts`, pooled by `pool.ts` | TIN builds of 25,000 points or more (`surfaceWork.ts`). Also binary imports of at least 500,000 bytes and text imports of at least 750,000 characters (`importWork.ts`): LAS, GeoTIFF, DEM, OBJ, STL, glTF. |
 | `src/engine/mesh.worker.ts` | Ball pivoting and mesh sections when the cloud has at least 800 points (`meshAsync.ts`). |
 | `src/engine/formats/dwg.worker.ts` | LibreDWG read. The worker is an inline blob, so the single-file page does not fetch a script. |
+| `src/engine/formats/dwgWrite.worker.ts` | LibreDWG write for DWG 2000 and DWG 2004. Also an inline blob. The module is `src/engine/formats/vendor/dwgwrite.wasm`. |
 
 The status bar reads `src/engine/tasks.ts` for the busy headline, stage, and cancel.
 
@@ -65,7 +66,7 @@ The status bar reads `src/engine/tasks.ts` for the busy headline, stage, and can
 
 ## Offline build
 
-Vite `base` is `./`. `npm run build:single` and `npm run build:web` use the single-file plugin and inline IBM Plex (latin, latin-ext, cyrillic, cyrillic-ext, greek, vietnamese) and the LibreDWG module. `scripts/check-offline.ts` scans `index.html`, `src/`, `public/`, `dist/` when that build exists, `dist-single/civil-design.html`, and `dist-web/index.html`. It allows the SVG, XHTML, and MathML namespace identifiers, and the LandXML 1.2 export namespace. Those strings are not fetched. `data:` URIs are stripped before the scan. A root-absolute `src` or `href` fails the pages build.
+Vite `base` is `./`. `npm run build:single` and `npm run build:web` use the single-file plugin and inline IBM Plex (latin, latin-ext, cyrillic, cyrillic-ext, greek, vietnamese) and the LibreDWG module. `scripts/check-offline.ts` scans `index.html`, `src/`, `public/`, `dist/` when that build exists, `dist-single/civil-design.html`, and `dist-web/index.html`. It allows the SVG, XHTML, and MathML namespace identifiers, the LandXML 1.2 export namespace, and the ODA File Converter download address shown when a newer DWG version needs that optional program. Those strings are not fetched. `data:` URIs are stripped before the scan. A root-absolute `src` or `href` fails the pages build.
 
 ## Tests
 

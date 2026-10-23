@@ -343,7 +343,7 @@ function AboutDialog({ onClose }: { onClose: () => void }) {
         <div className="modal-body">
           <p>{INDEPENDENCE}</p>
           <p>Terrain surfaces. After this page loads, it keeps working with no network.</p>
-          <p>LibreDWG reads DWG offline in the browser and on the desktop. Saving writes DXF unless ODA File Converter is selected.</p>
+          <p>LibreDWG reads and writes DWG offline in the browser and on the desktop. DWG 2000 and DWG 2004 need no other program. DWG 2007 and later use ODA File Converter when it is installed.</p>
           <p>{COPYRIGHT}</p>
           <p>{COPYRIGHT_NOTE}</p>
         </div>

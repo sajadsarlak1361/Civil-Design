@@ -19,6 +19,7 @@ function stripCrossorigin(): Plugin {
 
 export default defineConfig({
   base: './',
+  define: process.env.VITEST ? undefined : { 'import.meta.env.VITEST': 'false' },
   plugins: [libredwgWasmResolve(), woff2Only(), offlineStrings(), stripLibredwgUrls(), inlineWasmAssets(), stripCrossorigin(), react()],
   server: {
     host: '0.0.0.0',

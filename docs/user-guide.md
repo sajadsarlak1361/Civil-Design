@@ -12,10 +12,10 @@ The shell is a menu bar, a ribbon, the drawing, a command line, and palettes. Co
 | Open | `OPEN`. One picker for the project and the import formats. Ctrl+O. |
 | Import | Points, LandXML, DXF, DWG / DWT, DEM / GeoTIFF, LAS, shapefile, image, OBJ, STL, glTF. LAZ runs `LASZIP`: the command line explains the missing decompressor, then the file dialog opens. |
 | Attach | `XATTACH`. Attach a DXF, DWG, or Civil Design drawing as an xref. |
-| DWG Settings | Engine Auto, LibreDWG, or ODA, the ODA path, and the DWG version used when ODA writes. |
+| DWG Settings | Engine Auto, LibreDWG, or ODA, the ODA path, and the save version. LibreDWG writes DWG 2000 and DWG 2004 with no other program. Newer versions use ODA File Converter when it is installed. |
 | Save | `QSAVE`. Project JSON. Ctrl+S. |
 | Save As | `SAVEAS`. The same project save. Ctrl+Shift+S. On the desktop the filter is `.fieldline`. |
-| Export | DXF, DWG, LandXML, points CSV, PDF, PNG, SVG, OBJ, STL, glTF, volume CSV. LAZ runs `LASZIP`, same as Import. DWG export follows the DWG write rules in [file-formats.md](file-formats.md). |
+| Export | DXF, DWG, LandXML, points CSV, PDF, PNG, SVG, OBJ, STL, glTF, volume CSV. LAZ runs `LASZIP`, same as Import. Export → DWG writes a DWG file offline. See [file-formats.md](file-formats.md). |
 | Recent Files | Names remembered locally. A stored path reopens on the desktop. A name without a path runs `OPEN` and asks you to choose that file. An empty list is an Open item. |
 | Close, Exit | `QUIT`. In the browser the command line says to close the tab. |
 

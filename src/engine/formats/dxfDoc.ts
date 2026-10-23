@@ -60,7 +60,18 @@ function aciOf(color: string): number | null {
 export function drawingToDxf(model: DxfModel, unit: LinearUnit = 'm'): string {
   const layers = [...new Set(['0', ...model.layers, ...model.entities.map((entity) => entity.layer)])];
   const records = new Map((model.layerRecords ?? []).map((layer) => [layer.name.toLowerCase(), layer]));
-  let body = pair(0, 'SECTION') + pair(2, 'HEADER') + pair(9, '$INSUNITS') + pair(70, unit === 'ft' ? 2 : 6) + pair(0, 'ENDSEC');
+  let body =
+    pair(0, 'SECTION') +
+    pair(2, 'HEADER') +
+    pair(9, '$ACADVER') +
+    pair(1, 'AC1015') +
+    pair(9, '$INSUNITS') +
+    pair(70, unit === 'ft' ? 2 : 6) +
+    pair(9, '$LTSCALE') +
+    pair(40, 1) +
+    pair(9, '$CLAYER') +
+    pair(8, '0') +
+    pair(0, 'ENDSEC');
   body += pair(0, 'SECTION') + pair(2, 'TABLES') + pair(0, 'TABLE') + pair(2, 'LAYER') + pair(70, layers.length);
   for (const layer of layers) {
     const record = records.get(layer.toLowerCase());

@@ -29,7 +29,7 @@ This repository is [sajadsarlak1361/Civil-Design](https://github.com/sajadsarlak
 - Surfaces are Delaunay TINs, with boundaries, breaklines, contours, elevation and slope shading, and TIN-to-TIN or surface-to-datum volumes.
 - `CREATE3DMESH` builds a 3D mesh with ball pivoting, so a scan can keep a wall or an overhang. `MESHSECTION` cuts that mesh on a vertical plane and reports overbreak and underbreak against a design section.
 - Alignments take tangents, circular curves, and Euler spirals. Profiles, sample lines, sections, offset alignments, superelevation, assemblies, corridors, intersections, grading, parcels, and mass haul are on the design ribbon.
-- File formats include the Civil Design project, DXF, DWG and DWT (read through LibreDWG), LandXML, point files, ASCII DEM, a limited GeoTIFF, LAS 1.2, shapefile, images, PDF plot, and OBJ, STL, and glTF meshes. LAZ opens the file dialog after the command line explains that a decompressor is not bundled.
+- File formats include the Civil Design project, DXF, DWG and DWT (read, and write for DWG 2000 and DWG 2004, through bundled LibreDWG), LandXML, point files, ASCII DEM, a limited GeoTIFF, LAS 1.2, shapefile, images, PDF plot, and OBJ, STL, and glTF meshes. LAZ opens the file dialog after the command line explains that a decompressor is not bundled.
 - Heavy TIN builds use a worker pool. A cloud of 25,000 points or more triangulates off the main thread. A mesh of 800 points or more is rebuilt in its own worker. DWG reading runs in a worker.
 - The page does not request the network after it loads. Fonts, the TIN worker, and LibreDWG are inside the build.
 

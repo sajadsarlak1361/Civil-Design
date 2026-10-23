@@ -240,14 +240,15 @@ describe('shapefile, image, mesh, pdf', () => {
 });
 
 describe('format catalog', () => {
-  it('keeps DWG and LAZ closed', () => {
+  it('keeps DWG writable offline and LAZ closed', () => {
     expect(dwgAvailable()).toBe(true);
     expect(DWG_VERDICT.read).toBe('yes');
-    expect(DWG_VERDICT.write).toBe('partial');
+    expect(DWG_VERDICT.write).toBe('yes');
     expect(DWG_VERDICT.reason).toMatch(/GPL-3\.0/);
+    expect(DWG_VERDICT.reason).toMatch(/DWG 2000/);
     expect(DWG_VERDICT.reason).not.toMatch(/https?:\/\//);
     expect(FORMAT_CATALOG.find((row) => row.id === 'dwg')?.read).toBe('yes');
-    expect(FORMAT_CATALOG.find((row) => row.id === 'dwg')?.write).toBe('partial');
+    expect(FORMAT_CATALOG.find((row) => row.id === 'dwg')?.write).toBe('yes');
     expect(FORMAT_CATALOG.find((row) => row.id === 'laz')?.note).toMatch(/LAS 1\.2/);
     const dwg = classifyFile('site.dwg', new Uint8Array([0]));
     expect(dwg.kind).toBe('dwg');

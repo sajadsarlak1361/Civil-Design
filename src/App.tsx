@@ -14,6 +14,7 @@ import { poolAvailable, resizePool } from './engine/pool';
 import { subscribeTasks, taskSnapshot, tasks } from './engine/tasks';
 import type { TaskHandle } from './engine/tasks';
 import { bindHost, getCommandSnapshot, getDrawingModel, importDrawing, importDxf, importDwgModel, installDrawingHistory, postMessage, reportLine, runCommand, subscribeCommandUi, subscribeDrawing, syncToolPrompt } from './commands/runtime';
+import { ODA_DOWNLOAD_URL } from './engine/formats/dwg';
 import { openDwg, saveDwg } from './engine/formats/dwgEngine';
 import { DwgSettingsDialog } from './components/DwgSettingsDialog';
 import { CommandLine } from './components/CommandLine';
@@ -711,17 +712,19 @@ function Shell() {
       )
         .then((saved) => {
           task.finish();
+          postMessage(saved.note);
           const name = `${slug}.${saved.extension}`;
           const mime = saved.extension === 'dwg' ? 'image/vnd.dwg' : 'application/dxf';
+          const warn = saved.extension === 'dxf' || saved.note.includes(ODA_DOWNLOAD_URL);
           if (desktopAvailable()) {
             void desktopSave(name, saved.bytes, saveFilters(saved.extension)).then((result) => {
               if (result === 'failed') downloadBytes(name, saved.bytes, mime);
-              if (saved.extension === 'dxf') window.alert(saved.note);
+              if (warn) window.alert(saved.note);
             });
             return;
           }
           downloadBytes(name, saved.bytes, mime);
-          if (saved.extension === 'dxf') window.alert(saved.note);
+          if (warn) window.alert(saved.note);
         })
         .catch((error: unknown) => {
           task.finish();

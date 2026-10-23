@@ -8,6 +8,7 @@ import { inlineWasmAssets, libredwgWasmResolve, stripLibredwgUrls } from './vite
 export function singleFileConfig(outDir: string) {
   return defineConfig({
     base: './',
+    define: { 'import.meta.env.VITEST': 'false' },
     plugins: [libredwgWasmResolve(), woff2Only(), offlineStrings(), stripLibredwgUrls(), react(), inlineWasmAssets(), viteSingleFile()],
     build: {
       outDir,

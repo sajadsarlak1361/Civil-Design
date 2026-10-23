@@ -1,13 +1,14 @@
 /**
  * DWG engines.
  *
- * LibreDWG (GPL-3.0) is bundled as WebAssembly and loaded in a worker the
- * first time a DWG is opened, in the browser and on the desktop. That build
- * reads R14 through 2018. Its writer is not in the module, so Save As emits
- * the DXF that a LibreDWG dxf2dwg step consumes.
+ * LibreDWG (GPL-3.0) is bundled as WebAssembly. The reader loads in a worker
+ * the first time a DWG is opened, in the browser and on the desktop, and reads
+ * R14 through 2018. A second module writes DWG 2000 and DWG 2004 offline.
+ * No other program is required for those versions.
  *
- * ODA File Converter is optional. Choose it in DWG Settings to write a DWG,
- * or to read one when the bundled module cannot. Auto uses LibreDWG first.
+ * ODA File Converter is optional. It writes DWG 2007 and later when it is
+ * installed and selected. When it is missing, Export still writes DWG 2000
+ * and shows where to download the converter.
  */
 
 export type DwgEngineId = 'auto' | 'libredwg' | 'oda';
@@ -38,33 +39,47 @@ export interface DwgSettings {
 
 export interface DwgVerdict {
   read: 'yes';
-  write: 'partial';
+  write: 'yes';
   reason: string;
 }
 
 export const DWG_VERDICT: DwgVerdict = {
   read: 'yes',
-  write: 'partial',
+  write: 'yes',
   reason:
-    'LibreDWG reads DWG and DWT from R14 through 2018 offline in the browser and on the desktop (GPL-3.0). The bundled module does not include a DWG writer, so Save As writes DXF. ODA File Converter is optional. When it is selected, it writes DWG at the chosen version (2000 through 2018).',
+    'LibreDWG reads DWG and DWT from R14 through 2018 and writes DWG 2000 and DWG 2004 offline in the browser and on the desktop (GPL-3.0). No other program is required for those versions. DWG 2007 and later use ODA File Converter when it is installed. If it is missing, the file is still saved as DWG 2000.',
 };
 
-export const DWG_WRITE_LIMIT =
-  'LibreDWG in this build reads DWG and does not write it. Civil Design saved a DXF instead. Choose ODA File Converter under DWG Settings to write a DWG. LibreDWG itself writes the 2000 release most reliably from that DXF.';
+export const DWG_NATIVE_WRITE =
+  'LibreDWG writes DWG 2000 and DWG 2004 offline. No other program is required. DWG 2007, 2010, 2013, and 2018 use ODA File Converter when it is installed. If it is missing, the file is still saved as DWG 2000.';
+
+export const DWG_WRITE_LIMIT = 'LibreDWG could not write a DWG. Civil Design saved a DXF instead.';
+
+/** Shown as text. The page does not request this address. */
+export const ODA_DOWNLOAD_URL = 'https://www.opendesign.com/guestfiles/oda_file_converter';
 
 export const ODA_MISSING =
-  'ODA File Converter was not found. Install it, then set its path in DWG Settings. Windows looks in Program Files\\ODA\\ODAFileConverter and in versioned folders next to it. Linux looks at /usr/bin/ODAFileConverter, /usr/local/bin/ODAFileConverter, /opt/ODAFileConverter/ODAFileConverter, and ODAFileConverter under your home directory. Until then, Auto uses the bundled LibreDWG reader.';
+  `ODA File Converter was not found. Install it, then set its path in DWG Settings. Download: ${ODA_DOWNLOAD_URL}. Windows looks in Program Files\\ODA\\ODAFileConverter and in versioned folders next to it. Linux looks at /usr/bin/ODAFileConverter, /usr/local/bin/ODAFileConverter, /opt/ODAFileConverter/ODAFileConverter, and ODAFileConverter under your home directory. DWG 2000 and DWG 2004 are still written by the bundled LibreDWG writer.`;
 
 const SETTINGS_KEY = 'fieldline.dwg';
 
-const FALLBACK: DwgSettings = { engine: 'auto', odaPath: '', version: 'ACAD2018' };
+const FALLBACK: DwgSettings = { engine: 'auto', odaPath: '', version: 'ACAD2000' };
 
 export function dwgAvailable(): boolean {
   return true;
 }
 
 export function dwgVersion(id: string | undefined): DwgVersionOption {
-  return DWG_VERSIONS.find((item) => item.id === id) ?? DWG_VERSIONS[DWG_VERSIONS.length - 1];
+  return DWG_VERSIONS.find((item) => item.id === id) ?? DWG_VERSIONS[0];
+}
+
+/** LibreDWG encodes these two releases. Newer releases go through ODA File Converter. */
+export function dwgLibreWritable(id: DwgVersionId): boolean {
+  return id === 'ACAD2000' || id === 'ACAD2004';
+}
+
+export function dwgFallbackNote(requestedLabel: string): string {
+  return `Wrote DWG 2000 with LibreDWG. ${requestedLabel} is not written by the bundled LibreDWG writer. Install ODA File Converter and choose it in DWG Settings to write that version. Download: ${ODA_DOWNLOAD_URL}`;
 }
 
 export function readDwgSettings(): DwgSettings {
