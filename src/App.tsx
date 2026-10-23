@@ -13,7 +13,7 @@ import { heavyBinary, heavyText, readDemOffThread, readGeoTiffOffThread, readLas
 import { resizePool } from './engine/pool';
 import { subscribeTasks, taskSnapshot, tasks } from './engine/tasks';
 import type { TaskHandle } from './engine/tasks';
-import { bindHost, getCommandSnapshot, getDrawingModel, importDrawing, importDxf, importDwgModel, installDrawingHistory, reportLine, subscribeCommandUi, subscribeDrawing, syncToolPrompt } from './commands/runtime';
+import { bindHost, getCommandSnapshot, getDrawingModel, importDrawing, importDxf, importDwgModel, installDrawingHistory, postMessage, reportLine, subscribeCommandUi, subscribeDrawing, syncToolPrompt } from './commands/runtime';
 import { openDwg, saveDwg } from './engine/formats/dwgEngine';
 import { DwgSettingsDialog } from './components/DwgSettingsDialog';
 import { CommandLine } from './components/CommandLine';
@@ -568,7 +568,10 @@ function Shell() {
         'application/xml',
       );
     }
-    if (request === 'export-csv' && active) downloadText(`${slug}-points.csv`, pointsToText(active.points, 'PNEZD', ','), 'text/csv');
+    if (request === 'export-csv') {
+      if (!active) postMessage('No surface to export.');
+      else downloadText(`${slug}-points.csv`, pointsToText(active.points, 'PNEZD', ','), 'text/csv');
+    }
     if (request === 'export-svg') downloadText(`${slug}.svg`, drawingToSvg(getDrawingModel().doc.entities), 'image/svg+xml');
     if (request === 'export-dwg') {
       const doc = getDrawingModel().doc;
@@ -603,11 +606,13 @@ function Shell() {
           window.alert(error instanceof Error ? error.message : 'Could not write that DWG.');
         });
     }
-    if ((request === 'export-obj' || request === 'export-stl' || request === 'export-gltf') && active) {
-      if (request === 'export-obj') downloadText(`${slug}.obj`, surfaceToObj(active.points, active.triangles), 'model/obj');
-      if (request === 'export-stl') downloadText(`${slug}.stl`, surfaceToStl(active.points, active.triangles), 'model/stl');
-      if (request === 'export-gltf') downloadText(`${slug}.gltf`, surfaceToGltf(active.points, active.triangles), 'model/gltf+json');
+    if (request === 'export-obj' || request === 'export-stl' || request === 'export-gltf') {
+      if (!active) postMessage('No surface to export.');
+      else if (request === 'export-obj') downloadText(`${slug}.obj`, surfaceToObj(active.points, active.triangles), 'model/obj');
+      else if (request === 'export-stl') downloadText(`${slug}.stl`, surfaceToStl(active.points, active.triangles), 'model/stl');
+      else downloadText(`${slug}.gltf`, surfaceToGltf(active.points, active.triangles), 'model/gltf+json');
     }
+    if (request === 'export-volume' && !current.state.volumeResult) postMessage('No volume report yet.');
     if (request === 'export-volume' && current.state.volumeResult) {
       const result = current.state.volumeResult;
       const base = current.state.surfaces.find((surface) => surface.id === current.state.volumeSetup.baseId);

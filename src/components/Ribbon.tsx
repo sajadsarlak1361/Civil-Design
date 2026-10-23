@@ -129,7 +129,7 @@ export const Ribbon = memo(function Ribbon() {
             <PropertiesPanel />
             <CommandPanel title="Utilities" items={[['Distance', 'DIST'], ['Area', 'AREA'], ['ID', 'ID'], ['List', 'LIST'], ['Regen', 'REGEN']]} />
             <CommandPanel title="Clipboard" items={[['Cut', 'CUTCLIP'], ['Copy', 'COPYCLIP'], ['Paste', 'PASTECLIP'], ['Copy Base', 'COPYBASE']]} />
-            <ViewHome projectView={project.state.view} onView={project.setView} onFit={() => project.requestFit()} />
+            <ViewHome projectView={project.state.view} onView={project.setView} onFit={() => { project.requestFit(); postMessage('Zoom extents.'); }} />
           </>
         )}
         {tab === 'Insert' && (
@@ -141,7 +141,7 @@ export const Ribbon = memo(function Ribbon() {
           </>
         )}
         {tab === 'Annotate' && <DraftPanels names={['Text', 'Dimensions', 'Leaders', 'Tables', 'Markup']} />}
-        {tab === 'View' && <ViewTab onView={project.setView} onFit={() => project.requestFit()} />}
+        {tab === 'View' && <ViewTab onView={project.setView} onFit={() => { project.requestFit(); postMessage('Zoom extents.'); }} />}
         {tab === 'Manage' && (
           <>
             <CommandPanel title="CAD Standards" items={[['Layers', 'LAYER'], ['Purge', 'PURGE'], ['Select Similar', 'SELECTSIMILAR']]} />
@@ -436,6 +436,7 @@ function ViewHome({ projectView, onView, onFit }: { projectView: string; onView:
 }
 
 function ViewTab({ onView, onFit }: { onView: (view: 'plan' | '3d' | 'split' | 'profile' | 'section') => void; onFit: () => void }) {
+  const ws = useWorkspace();
   return (
     <>
       <CommandPanel title="Viewport Tools" items={[['Extents', 'ZOOMEXTENTS'], ['Pan', 'PAN'], ['Plan', 'PLAN']]} onRun={(command) => (command === 'ZOOMEXTENTS' ? onFit() : runCommand(command))} />
@@ -462,7 +463,7 @@ function ViewTab({ onView, onFit }: { onView: (view: 'plan' | '3d' | 'split' | '
           <button type="button" className="ribbon-sm" onClick={() => runPreset('sw')}>
             <span>SW</span>
           </button>
-          <button type="button" className="ribbon-sm" onClick={() => rememberActiveView('View 1')}>
+          <button type="button" className="ribbon-sm" onClick={() => { rememberActiveView('View 1'); postMessage('Saved view "View 1".'); }}>
             <span>Save View</span>
           </button>
         </div>
@@ -510,13 +511,13 @@ function ViewTab({ onView, onFit }: { onView: (view: 'plan' | '3d' | 'split' | '
       </section>
       <section className="ribbon-panel" aria-label="Interface" data-panel="Interface">
         <div className="ribbon-tools stack">
-          <button type="button" className="ribbon-sm" onClick={() => patchChrome({ cleanScreen: true })}>
+          <button type="button" className={`ribbon-sm${ws.cleanScreen ? ' active' : ''}`} onClick={() => patchChrome({ cleanScreen: !ws.cleanScreen })}>
             <span>Clean</span>
           </button>
-          <button type="button" className="ribbon-sm" onClick={() => patchChrome({ commandLine: true })}>
+          <button type="button" className={`ribbon-sm${ws.commandLine ? ' active' : ''}`} onClick={() => patchChrome({ commandLine: !ws.commandLine })}>
             <span>Command</span>
           </button>
-          <button type="button" className="ribbon-sm" onClick={() => patchChrome({ viewCube: true })}>
+          <button type="button" className={`ribbon-sm${ws.viewCube ? ' active' : ''}`} onClick={() => patchChrome({ viewCube: !ws.viewCube })}>
             <span>ViewCube</span>
           </button>
           <button type="button" className="ribbon-sm" onClick={() => cycleRibbon()}>

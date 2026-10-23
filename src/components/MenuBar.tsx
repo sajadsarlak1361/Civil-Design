@@ -7,6 +7,7 @@ import {
   commandUndo,
   eraseSelection,
   getDrawingModel,
+  postMessage,
   runCommand,
   runPreset,
   runViewportLayout,
@@ -18,8 +19,9 @@ import {
 import { onUi, requestUi, type UiRequest } from '../lib/uiBus';
 import { DWG_SETTINGS, FILE_ATTACH, FILE_EXPORT, FILE_IMPORT, type FileMenuAction } from './fileMenu';
 import { recentFiles } from '../lib/recentFiles';
-import { applyOrbit, applyPlan, panDirection, restoreView, toggleChrome } from '../view/viewCommands';
+import { applyPlan, panDirection, restoreView, toggleChrome } from '../view/viewCommands';
 import {
+  getWorkspace,
   joinActive,
   PRESET_LABELS,
   rememberActiveView,
@@ -158,9 +160,9 @@ export function MenuBar() {
           <Item label="Down" onClick={() => go(() => panDirection('down'))} />
         </Sub>
         <Sub label="Orbit">
-          <Item label="Constrained Orbit" onClick={() => go(() => applyOrbit('constrained'))} />
-          <Item label="Free Orbit" onClick={() => go(() => applyOrbit('free'))} />
-          <Item label="Continuous Orbit" onClick={() => go(() => applyOrbit('continuous'))} />
+          <Item label="Constrained Orbit" onClick={() => go(() => runCommand('3DORBIT'))} />
+          <Item label="Free Orbit" onClick={() => go(() => runCommand('3DFORBIT'))} />
+          <Item label="Continuous Orbit" onClick={() => go(() => runCommand('3DCORBIT'))} />
         </Sub>
         <Item label="Camera" disabled title="Camera is not available in this build." onClick={() => {}} />
         <Item label="Walk" disabled title="Walk is not available in this build." onClick={() => {}} />
@@ -209,7 +211,7 @@ export function MenuBar() {
           <Sub label="UCS Icon">
             <Item label="On" checked={ws.ucsIcon} onClick={() => go(() => { if (!ws.ucsIcon) runCommand('UCSICON'); })} />
             <Item label="Off" checked={!ws.ucsIcon} onClick={() => go(() => { if (ws.ucsIcon) runCommand('UCSICON'); })} />
-            <Item label="Origin" checked={ws.ucsAtOrigin} onClick={() => go(() => toggleChrome('ucsAtOrigin'))} />
+            <Item label="Origin" checked={ws.ucsAtOrigin} onClick={() => go(() => { toggleChrome('ucsAtOrigin'); postMessage(getWorkspace().ucsAtOrigin ? 'UCS icon at the origin.' : 'UCS icon in the corner.'); })} />
           </Sub>
           <Item label="Text Window" shortcut="F2" checked={ws.textWindow} onClick={() => go(() => toggleChrome('textWindow'))} />
           <Item label="Lineweights" checked={ws.lineweights} onClick={() => go(() => runCommand('LWDISPLAY'))} />

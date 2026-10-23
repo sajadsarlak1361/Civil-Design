@@ -1124,7 +1124,6 @@ export function runVisualStyle(style: VisualStyle): void {
 
 export function zoomSelection(): void {
   const view = getView();
-  if (!view) return;
   let minX = Infinity;
   let minY = Infinity;
   let maxX = -Infinity;
@@ -1139,10 +1138,12 @@ export function zoomSelection(): void {
     maxY = Math.max(maxY, bounds.maxY);
   }
   if (!Number.isFinite(minX)) {
-    view.zoomExtents();
+    say('No objects selected. Zoom extents.', 'message');
+    view?.zoomExtents();
     return;
   }
-  view.zoomWindow({ x: minX, y: minY }, { x: maxX, y: maxY });
+  say('Zoom object.', 'message');
+  view?.zoomWindow({ x: minX, y: minY }, { x: maxX, y: maxY });
 }
 
 export function applyFindReplace(query: string, replacement: string, matchCase: boolean): number {
@@ -1537,7 +1538,10 @@ export function cancelGrip(): boolean {
 }
 
 export function eraseSelection(): void {
-  if (model.doc.selection.length === 0) return;
+  if (model.doc.selection.length === 0) {
+    say('No objects selected.', 'error');
+    return;
+  }
   const parted = partitionEditable(model.doc, model.doc.selection);
   if (parted.locked) say(lockMessage(parted.locked), 'message');
   const entityIds = parted.editable.filter((id) => model.entity(id));
