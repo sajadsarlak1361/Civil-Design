@@ -502,22 +502,50 @@ function Shell() {
           });
       }
     };
-    void desktopTakeLaunchPath().then((path) => {
-      if (path) openPaths([path]);
-    });
-    return onDesktopOpenPaths(openPaths);
+    let stop = () => {};
+    try {
+      void desktopTakeLaunchPath()
+        .then((path) => {
+          if (path) openPaths([path]);
+        })
+        .catch(() => {});
+      stop = onDesktopOpenPaths(openPaths);
+    } catch {
+      stop = () => {};
+    }
+    return () => {
+      try {
+        stop();
+      } catch {
+        // Listener teardown must not unmount the menu bar.
+      }
+    };
   }, []);
 
-  useEffect(() => onDesktopXrefChanged((path) => {
-    if (!path) return;
-    updateXrefs((doc) => {
-      let next = doc;
-      for (const record of doc.records) {
-        if (record.savedPath === path) next = markNeedsReload(next, record.id);
+  useEffect(() => {
+    let stop = () => {};
+    try {
+      stop = onDesktopXrefChanged((path) => {
+        if (!path) return;
+        updateXrefs((doc) => {
+          let next = doc;
+          for (const record of doc.records) {
+            if (record.savedPath === path) next = markNeedsReload(next, record.id);
+          }
+          return next;
+        });
+      });
+    } catch {
+      stop = () => {};
+    }
+    return () => {
+      try {
+        stop();
+      } catch {
+        // Listener teardown must not unmount the menu bar.
       }
-      return next;
-    });
-  }), []);
+    };
+  }, []);
 
   useEffect(() => onUi((request) => {
     if (request === 'dwg-settings') {

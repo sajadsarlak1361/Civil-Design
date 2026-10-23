@@ -30,5 +30,9 @@ describe('open file filters', () => {
     expect(pathsFromDropPayload({ payload: { paths: ['/tmp/entities.dxf'] } })).toEqual(['/tmp/entities.dxf']);
     expect(pathsFromDropPayload({ payload: '/tmp/entities.dwg' })).toEqual(['/tmp/entities.dwg']);
     expect(pathsFromDropPayload({ position: { x: 1, y: 2 } })).toEqual([]);
+    expect(pathsFromDropPayload({ type: 'enter', paths: ['C:\\a.dxf'] })).toEqual([]);
+    expect(pathsFromDropPayload({ type: 'over', paths: ['C:\\a.dxf'] })).toEqual([]);
+    expect(pathsFromDropPayload({ type: 'leave' })).toEqual([]);
+    expect(pathsFromDropPayload({ type: 'drop', paths: ['C:\\a.dxf', 'C:\\b.dwg'] })).toEqual(['C:\\a.dxf', 'C:\\b.dwg']);
   });
 });

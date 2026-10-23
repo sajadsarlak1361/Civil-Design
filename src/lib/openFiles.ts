@@ -118,7 +118,9 @@ export function pathsFromDropPayload(payload: unknown): string[] {
     return path ? [path] : [];
   }
   if (!body || typeof body !== 'object') return [];
-  const paths = (body as { paths?: unknown }).paths;
+  const record = body as { paths?: unknown; type?: unknown };
+  if (typeof record.type === 'string' && record.type !== 'drop') return [];
+  const paths = record.paths;
   if (!Array.isArray(paths)) return [];
   return paths.map((item) => dialogPath(item)).filter((item): item is string => Boolean(item));
 }

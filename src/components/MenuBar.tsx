@@ -50,8 +50,9 @@ export function MenuBar() {
   useEffect(() => {
     if (!open) return;
     const onPointer = (event: PointerEvent) => {
-      const target = event.target as HTMLElement | null;
-      if (target?.closest('.menubar')) return;
+      if (event.composedPath().some((node) => node instanceof Element && node.classList.contains('menubar'))) return;
+      const target = event.target;
+      if (target instanceof Element && target.closest('.menubar')) return;
       setOpen(null);
     };
     const onKey = (event: KeyboardEvent) => {
@@ -254,9 +255,19 @@ function Root({ id, label, open, setOpen, children }: { id: 'file' | 'edit' | 'v
 }
 
 function Sub({ label, children }: { label: string; children: ReactNode }) {
+  const [shown, setShown] = useState(false);
   return (
-    <div className="menu-sub">
-      <button type="button" role="menuitem" aria-haspopup="true">
+    <div className={`menu-sub${shown ? ' open' : ''}`} onMouseEnter={() => setShown(true)} onMouseLeave={() => setShown(false)}>
+      <button
+        type="button"
+        role="menuitem"
+        aria-haspopup="true"
+        aria-expanded={shown}
+        onClick={(event) => {
+          event.stopPropagation();
+          setShown(true);
+        }}
+      >
         <span>{label}</span>
         <span aria-hidden="true">▸</span>
       </button>

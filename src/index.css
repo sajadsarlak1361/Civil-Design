@@ -951,7 +951,8 @@ th { color: var(--muted); font-weight: 500; position: sticky; top: 0; background
 }
 .menu-sub { position: relative; }
 .menu-sub > .menu-drop { display: none; top: -4px; left: 100%; }
-.menu-sub:hover > .menu-drop, .menu-sub:focus-within > .menu-drop { display: block; }
+.menu-sub > .menu-drop::before { content: ''; position: absolute; top: 0; bottom: 0; right: 100%; width: 12px; }
+.menu-sub:hover > .menu-drop, .menu-sub:focus-within > .menu-drop, .menu-sub.open > .menu-drop { display: block; }
 .menu-drop button {
   display: flex;
   width: 100%;
