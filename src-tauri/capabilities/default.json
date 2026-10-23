@@ -1,0 +1,18 @@
+{
+  "$schema": "../gen/schemas/desktop-schema.json",
+  "identifier": "default",
+  "description": "Civil Design main window",
+  "windows": ["main"],
+  "permissions": [
+    "core:default",
+    "core:event:default",
+    "dialog:default",
+    "window-state:default",
+    "allow-read-bytes",
+    "allow-write-bytes",
+    "allow-watch-xref",
+    "allow-open-path",
+    "allow-oda-probe",
+    "allow-oda-convert"
+  ]
+}

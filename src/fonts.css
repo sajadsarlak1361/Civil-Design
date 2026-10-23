@@ -1,0 +1,8 @@
+/* IBM Plex, same families and weights the UI already asks for.
+   Subsets match the old Google Fonts stylesheet: latin, latin-ext,
+   cyrillic, cyrillic-ext, greek, and vietnamese. */
+@import '@fontsource/ibm-plex-sans/400.css';
+@import '@fontsource/ibm-plex-sans/500.css';
+@import '@fontsource/ibm-plex-sans/600.css';
+@import '@fontsource/ibm-plex-mono/400.css';
+@import '@fontsource/ibm-plex-mono/500.css';

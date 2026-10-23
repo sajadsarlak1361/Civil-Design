@@ -1,0 +1,43 @@
+{
+  "name": "civil-design",
+  "private": true,
+  "version": "0.2.0",
+  "type": "module",
+  "scripts": {
+    "dev": "vite",
+    "build": "tsc -b && vite build",
+    "build:single": "tsc -b && vite build --config vite.singlefile.config.ts && cp dist-single/index.html dist-single/civil-design.html && node --experimental-strip-types scripts/check-offline.ts",
+    "build:web": "tsc -b && vite build --config vite.web.config.ts && cp dist-web/index.html dist-web/civil-design.html && : > dist-web/.nojekyll && node --experimental-strip-types scripts/check-offline.ts --web-only",
+    "lint": "eslint .",
+    "preview": "vite preview",
+    "test": "vitest run && node --experimental-strip-types scripts/check-offline.ts --require-web",
+    "benchmark": "node --max-old-space-size=8192 node_modules/vite-node/vite-node.mjs scripts/benchmark.ts",
+    "generate-samples": "node scripts/generate-samples.mjs"
+  },
+  "dependencies": {
+    "@fontsource/ibm-plex-mono": "^5.3.0",
+    "@fontsource/ibm-plex-sans": "^5.3.0",
+    "@mlightcad/libredwg-web": "^0.8.2",
+    "delaunator": "^5.0.1",
+    "react": "^19.0.0",
+    "react-dom": "^19.0.0",
+    "three": "^0.170.0"
+  },
+  "devDependencies": {
+    "@eslint/js": "^9.22.0",
+    "@types/node": "^22.10.0",
+    "@types/react": "^19.0.10",
+    "@types/react-dom": "^19.0.4",
+    "@types/three": "^0.170.0",
+    "@vitejs/plugin-react": "^4.3.4",
+    "eslint": "^9.22.0",
+    "eslint-plugin-react-hooks": "^5.2.0",
+    "eslint-plugin-react-refresh": "^0.4.19",
+    "globals": "^16.0.0",
+    "typescript": "~5.7.2",
+    "typescript-eslint": "^8.26.1",
+    "vite": "^6.3.1",
+    "vite-plugin-singlefile": "^2.3.4",
+    "vitest": "^3.2.4"
+  }
+}

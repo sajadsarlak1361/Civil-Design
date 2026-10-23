@@ -1,0 +1,29 @@
+[[permission]]
+identifier = "allow-read-bytes"
+description = "Read a local file as base64."
+commands.allow = ["read_bytes"]
+
+[[permission]]
+identifier = "allow-write-bytes"
+description = "Write a local file from base64."
+commands.allow = ["write_bytes"]
+
+[[permission]]
+identifier = "allow-watch-xref"
+description = "Watch an xref path and report changes."
+commands.allow = ["watch_xref"]
+
+[[permission]]
+identifier = "allow-open-path"
+description = "Open a saved xref path with the default application."
+commands.allow = ["open_path"]
+
+[[permission]]
+identifier = "allow-oda-probe"
+description = "Look for ODA File Converter on this computer."
+commands.allow = ["oda_probe"]
+
+[[permission]]
+identifier = "allow-oda-convert"
+description = "Convert one DWG or DXF with ODA File Converter."
+commands.allow = ["oda_convert"]
