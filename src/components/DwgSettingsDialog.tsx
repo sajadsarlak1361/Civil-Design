@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { DWG_VERSIONS, DWG_WRITE_LIMIT, ODA_MISSING, readDwgSettings, writeDwgSettings, type DwgEngineId, type DwgVersionId } from '../engine/formats/dwg';
+import { DWG_NATIVE_WRITE, DWG_VERSIONS, ODA_DOWNLOAD_URL, ODA_MISSING, readDwgSettings, writeDwgSettings, type DwgEngineId, type DwgVersionId } from '../engine/formats/dwg';
 import { probeOda } from '../lib/oda';
 
 export function DwgSettingsDialog({ onClose }: { onClose: () => void }) {
@@ -41,13 +41,13 @@ export function DwgSettingsDialog({ onClose }: { onClose: () => void }) {
       >
         <header>
           <h2 id="dwg-settings-title">DWG settings</h2>
-          <p>LibreDWG is bundled and GPL-3.0. Auto uses ODA File Converter on the desktop when it is installed.</p>
+          <p>LibreDWG is bundled and GPL-3.0. It reads DWG and writes DWG 2000 and DWG 2004 offline. ODA File Converter is optional for newer versions.</p>
         </header>
         <div className="modal-body">
           <label>
             Engine
             <select value={engine} onChange={(event) => setEngine(event.target.value as DwgEngineId)}>
-              <option value="auto">Auto (ODA if found, else LibreDWG)</option>
+              <option value="auto">Auto (bundled LibreDWG)</option>
               <option value="libredwg">LibreDWG</option>
               <option value="oda">ODA File Converter</option>
             </select>
@@ -67,7 +67,12 @@ export function DwgSettingsDialog({ onClose }: { onClose: () => void }) {
             </select>
           </label>
           <p className="hint">{odaNote}</p>
-          <p className="hint">{DWG_WRITE_LIMIT}</p>
+          <p className="hint">
+            {DWG_NATIVE_WRITE}{' '}
+            <a href={ODA_DOWNLOAD_URL} target="_blank" rel="noreferrer">
+              ODA File Converter download
+            </a>
+          </p>
         </div>
         <footer>
           <button type="button" onClick={onClose}>

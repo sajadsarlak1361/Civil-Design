@@ -159,6 +159,21 @@ export function orbitConstrained(
   return { position, target: pose.target, up: [0, 1, 0] };
 }
 
+export type LocomotionDir = 'forward' | 'back' | 'left' | 'right' | 'up' | 'down';
+
+/** Move the camera and its target together. Walk stays on the horizontal; fly follows the look direction. */
+export function stepLocomotion(pose: Pose, direction: LocomotionDir, distance: number, fly: boolean): Pose {
+  const basis = viewBasis(pose);
+  let axis: Vec3;
+  if (direction === 'left' || direction === 'right') axis = basis.right;
+  else if (direction === 'up' || direction === 'down') axis = [0, 1, 0];
+  else if (fly) axis = basis.forward;
+  else axis = normalize([basis.forward[0], 0, basis.forward[2]]);
+  const sign = direction === 'back' || direction === 'left' || direction === 'down' ? -1 : 1;
+  const delta = mul(axis, sign * distance);
+  return { position: add(pose.position, delta), target: add(pose.target, delta), up: pose.up };
+}
+
 /** Free orbit. The camera tumbles about the target and its up vector follows. */
 export function orbitFree(pose: Pose, dx: number, dy: number, height: number): Pose {
   const { right, up } = viewBasis(pose);

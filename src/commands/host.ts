@@ -34,6 +34,8 @@ export interface CadHost {
   redoProject(): boolean;
   newProject(): void;
   setUnit(unit: 'm' | 'ft'): void;
+  /** Build a TIN whose elevation is comparison minus base. */
+  createVolumeSurface(): void;
   /** Optional. Home drafting uses it for WBLOCK. */
   downloadFile?(filename: string, text: string, mime: string): void;
 }
@@ -42,6 +44,8 @@ export interface ViewBridge {
   zoomExtents(): void;
   zoomWindow(a: Vec2, b: Vec2): void;
   zoomScale(factor: number): void;
+  /** Center the view on a point, then multiply the current scale. */
+  zoomCenter?(point: Vec2, factor: number): void;
   zoomPrevious(): void;
   panBy(a: Vec2, b: Vec2): void;
   panDisplacement(x: number, y: number): void;

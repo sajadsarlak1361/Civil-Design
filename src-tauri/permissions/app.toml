@@ -4,6 +4,16 @@ description = "Read a local file as base64."
 commands.allow = ["read_bytes"]
 
 [[permission]]
+identifier = "allow-file-size"
+description = "Read the byte length of a local file."
+commands.allow = ["file_size"]
+
+[[permission]]
+identifier = "allow-read-bytes-part"
+description = "Read one slice of a local file as base64."
+commands.allow = ["read_bytes_part"]
+
+[[permission]]
 identifier = "allow-write-bytes"
 description = "Write a local file from base64."
 commands.allow = ["write_bytes"]
@@ -17,6 +27,11 @@ commands.allow = ["watch_xref"]
 identifier = "allow-open-path"
 description = "Open a saved xref path with the default application."
 commands.allow = ["open_path"]
+
+[[permission]]
+identifier = "allow-take-launch-path"
+description = "Read a drawing path passed when the desktop app starts."
+commands.allow = ["take_launch_path"]
 
 [[permission]]
 identifier = "allow-oda-probe"

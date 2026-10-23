@@ -3,6 +3,7 @@ import {
   DrawingModel,
   applyConstraint,
   bindDrawingHistory,
+  drawingBounds,
   drawingDocFromFile,
   emptyDrawing,
   entityBounds,
@@ -31,13 +32,13 @@ import {
   xbindLayers,
   xrefBounds,
 } from '../engine/xref';
+import { LAZ_REASON } from '../engine/formats/las';
 import { applyOrbit, applyPlan, applyPreset, applyViewportLayout } from '../view/viewCommands';
-import { getWorkspace, patchChrome, setVisualStyle, type ViewPreset, type ViewportCount, type VisualStyle } from '../view/workspace';
+import { getWorkspace, patchChrome, rememberActiveView, setLocomotion, setVisualStyle, type ViewPreset, type ViewportCount, type VisualStyle } from '../view/workspace';
 import { suggestCommands, type Suggestion } from './autocomplete';
 import {
   helpText,
   resolveToken,
-  soonFor,
   suggestionSources,
   unavailableMessage,
   unknownMessage,
@@ -261,14 +262,18 @@ export function interactionMode(): 'idle' | 'point' | 'select' | 'tool' {
   return 'idle';
 }
 
-export function importDrawing(entities: DrawEntity[], layers: string[], label: string): void {
+export function importDrawing(entities: DrawEntity[], layers: string[], label: string, bulk?: DxfModel['bulk']): void {
   model.checkpoint(label);
   for (const name of layers) {
     if (!model.layer(name)) model.doc.layers.push(normalizeLayer({ name, color: '#e8eef7', lineType: 'Continuous' }));
   }
   for (const entity of entities) model.add({ ...entity, id: model.nextId() });
+  if (bulk && bulk.entityCount > 0) model.doc.bulk = bulk;
   model.emit();
   publishView();
+  frameImported();
+  if (bulk?.truncated) say('Opened the first part of this DXF. The rest is larger than this session can hold.', 'message');
+  else if (bulk && bulk.entityCount > 0) say(`Opened ${bulk.entityCount} objects.`, 'message');
 }
 
 export function importDxf(modelIn: DxfModel): void {
@@ -280,7 +285,7 @@ export function importDxf(modelIn: DxfModel): void {
     ];
     return edges;
   });
-  importDrawing([...modelIn.entities, ...faces], [...modelIn.layers, 'TIN'], 'DXFIN');
+  importDrawing([...modelIn.entities, ...faces], [...modelIn.layers, 'TIN'], 'DXFIN', modelIn.bulk);
   for (const layer of modelIn.layerRecords ?? []) {
     if (!model.layer(layer.name)) {
       model.doc.layers.push(normalizeLayer({ name: layer.name, color: layer.color, colorIndex: layer.colorIndex, lineType: layer.lineType, lineWeight: layer.lineWeight, frozen: layer.frozen, locked: layer.locked, visible: layer.visible }));
@@ -320,6 +325,14 @@ export function importDwgModel(imported: DwgImport): void {
   }
   for (const note of imported.notes) say(note, 'message');
   publishView();
+  frameImported();
+}
+
+function frameImported(): void {
+  const box = drawingBounds(model.doc);
+  const view = getView();
+  if (!box || !view) return;
+  view.zoomWindow({ x: box.minX, y: box.minY }, { x: box.maxX, y: box.maxY });
 }
 
 function commandDashXref(line: string): void {
@@ -551,6 +564,10 @@ function applyEffect(effect: SessionEffect): void {
   if (effect.type === 'zoom-extents') bridge?.zoomExtents();
   if (effect.type === 'zoom-window') bridge?.zoomWindow(effect.a, effect.b);
   if (effect.type === 'zoom-scale') bridge?.zoomScale(effect.factor);
+  if (effect.type === 'zoom-center') {
+    if (bridge?.zoomCenter) bridge.zoomCenter(effect.point, effect.factor);
+    else bridge?.zoomScale(effect.factor);
+  }
   if (effect.type === 'zoom-previous') bridge?.zoomPrevious();
   if (effect.type === 'pan-by') bridge?.panBy(effect.a, effect.b);
   if (effect.type === 'pan-displacement') bridge?.panDisplacement(effect.x, effect.y);
@@ -607,6 +624,7 @@ export const IMMEDIATE_COMMANDS = [
   'COPYCLIP', 'CUTCLIP', 'COPYBASE', 'COPYLINK', 'PASTEBLOCK', 'PASTEORIG', 'PASTESPEC',
   'AI_SELALL', 'FIND', 'SELECTSIMILAR',
   '3DORBIT', '3DFORBIT', '3DCORBIT', 'PLAN', 'CLEANSCREENON', 'CLEANSCREENOFF',
+  'CAMERA', '3DWALK', '3DFLY', 'RENDER', 'OLELINKS', 'LASZIP', 'AUDIT', 'CREATESURFACECOMPOSITE',
 'VPORTS', 'VIEW', 'UCSICON', 'NAVBARDISPLAY', 'VIEWCUBE', 'VSCURRENT',
   'XREF', 'XATTACH', 'IMAGEATTACH', 'XBIND', 'XCLIP',
   'ORTHO', 'POLAR', 'OTRACK', 'DYNMODE',
@@ -660,8 +678,6 @@ function execute(typed: string, command: string, resolved?: ResolvedCommand, opt
   }
   if (!hit.implemented) {
     say(unavailableMessage(hit.command), 'error');
-    const soon = soonFor(hit.command);
-    if (soon) getHost()?.showComingSoon(soon.name, soon.panel);
     return;
   }
   if (hit.command === 'PASTECLIP' || hit.command === 'PASTEBLOCK' || hit.command === 'PASTEORIG' || hit.command === 'PASTESPEC') {
@@ -787,7 +803,7 @@ function immediate(command: string, options?: { mode?: 'layout' | 'tangents' | '
       model.doc.selection = selectAll(model.doc);
       model.emit();
       getView()?.redraw();
-      say(`${model.doc.selection.length} selected.`, 'message');
+      say(`${model.doc.bulk && model.doc.bulk.entityCount > 0 ? model.doc.bulk.entityCount : model.doc.selection.length} selected.`, 'message');
       return;
     case 'SELECTSIMILAR':
       model.doc.selection = selectSimilar(model.doc, model.doc.selection);
@@ -802,6 +818,48 @@ function immediate(command: string, options?: { mode?: 'layout' | 'tangents' | '
       propertiesOpen = true;
       qselectOpen = true;
       say('Quick Select.', 'message');
+      return;
+    case 'CAMERA': {
+      cad?.setView('3d');
+      const taken = new Set(getWorkspace().namedViews.map((view) => view.name.toLowerCase()));
+      let index = 1;
+      while (taken.has(`camera ${index}`)) index += 1;
+      const name = `Camera ${index}`;
+      rememberActiveView(name);
+      requestUi('named-views');
+      say(`Camera "${name}" saved.`, 'message');
+      return;
+    }
+    case '3DWALK':
+      setLocomotion('walk');
+      cad?.setView('3d');
+      say('Walk. Arrow keys and WASD move. Esc stops.', 'message');
+      return;
+    case '3DFLY':
+      setLocomotion('fly');
+      cad?.setView('3d');
+      say('Fly. Arrow keys move. Q and E change height. Esc stops.', 'message');
+      return;
+    case 'RENDER':
+      setVisualStyle('realistic');
+      cad?.setView('3d');
+      requestUi('render');
+      say('Rendering the view.', 'message');
+      return;
+    case 'OLELINKS':
+      patchChrome({ xrefs: true });
+      requestUi('links');
+      say('Links.', 'message');
+      return;
+    case 'LASZIP':
+      say(LAZ_REASON, 'error');
+      cad?.openProject();
+      return;
+    case 'AUDIT':
+      auditDrawing();
+      return;
+    case 'CREATESURFACECOMPOSITE':
+      cad?.createVolumeSurface();
       return;
     case '3DORBIT':
       applyOrbit('constrained');
@@ -875,13 +933,17 @@ function immediate(command: string, options?: { mode?: 'layout' | 'tangents' | '
       say('Layer Properties Manager.', 'message');
       return;
     case 'PROPERTIES':
+      if (propertiesOpen || getWorkspace().properties) {
+        closeProperties();
+        say('Properties closed.', 'message');
+        return;
+      }
       propertiesOpen = true;
+      patchChrome({ properties: true });
       say('Properties palette.', 'message');
       return;
     case 'PROPERTIESCLOSE':
-      propertiesOpen = false;
-      vertexMarker = null;
-      publishView();
+      closeProperties();
       return;
     case 'QUICKPROPERTIES':
       quickProperties = !quickProperties;
@@ -1114,7 +1176,6 @@ export function runVisualStyle(style: VisualStyle): void {
 
 export function zoomSelection(): void {
   const view = getView();
-  if (!view) return;
   let minX = Infinity;
   let minY = Infinity;
   let maxX = -Infinity;
@@ -1129,10 +1190,12 @@ export function zoomSelection(): void {
     maxY = Math.max(maxY, bounds.maxY);
   }
   if (!Number.isFinite(minX)) {
-    view.zoomExtents();
+    say('No objects selected. Zoom extents.', 'message');
+    view?.zoomExtents();
     return;
   }
-  view.zoomWindow({ x: minX, y: minY }, { x: maxX, y: maxY });
+  say('Zoom object.', 'message');
+  view?.zoomWindow({ x: minX, y: minY }, { x: maxX, y: maxY });
 }
 
 export function applyFindReplace(query: string, replacement: string, matchCase: boolean): number {
@@ -1309,7 +1372,38 @@ export function submitInput(raw?: string): void {
   runCommand(text);
 }
 
+function auditDrawing(): void {
+  const doc = model.doc;
+  const ids = new Set<string>();
+  const layers = new Set(doc.layers.map((layer) => layer.name));
+  let duplicate = 0;
+  let zero = 0;
+  let missing = 0;
+  for (const entity of doc.entities) {
+    if (ids.has(entity.id)) duplicate += 1;
+    ids.add(entity.id);
+    if (!layers.has(entity.layer)) missing += 1;
+    if (entity.type === 'line') {
+      const dx = entity.a.x - entity.b.x;
+      const dy = entity.a.y - entity.b.y;
+      const dz = entity.a.z - entity.b.z;
+      if (dx * dx + dy * dy + dz * dz < 1e-12) zero += 1;
+    }
+  }
+  const problems = duplicate + zero + missing;
+  say(
+    `Audit: ${doc.entities.length} objects, ${zero} zero-length, ${duplicate} duplicate ids, ${missing} missing layers.`,
+    problems ? 'error' : 'message',
+  );
+}
+
 export function cancelInput(): void {
+  if (getWorkspace().locomotion !== 'none') {
+    setLocomotion('none');
+    say('Navigation stopped.', 'message');
+    publishUi();
+    return;
+  }
   if (grip) {
     grip = null;
     prompt = null;
@@ -1527,7 +1621,10 @@ export function cancelGrip(): boolean {
 }
 
 export function eraseSelection(): void {
-  if (model.doc.selection.length === 0) return;
+  if (model.doc.selection.length === 0) {
+    say('No objects selected.', 'error');
+    return;
+  }
   const parted = partitionEditable(model.doc, model.doc.selection);
   if (parted.locked) say(lockMessage(parted.locked), 'message');
   const entityIds = parted.editable.filter((id) => model.entity(id));
@@ -1578,6 +1675,7 @@ export function closeProperties(): void {
   propertiesOpen = false;
   vertexMarker = null;
   picking = false;
+  patchChrome({ properties: false });
   publishUi();
   publishView();
 }

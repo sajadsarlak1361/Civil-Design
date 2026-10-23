@@ -24,7 +24,7 @@ export const FILE_IMPORT: FileMenuAction[] = [
   { id: 'obj', label: 'OBJ…', command: 'OPEN' },
   { id: 'stl', label: 'STL…', command: 'OPEN' },
   { id: 'gltf', label: 'glTF…', command: 'OPEN' },
-  { id: 'laz', label: 'LAZ', disabled: true, title: LAZ_REASON },
+  { id: 'laz', label: 'LAZ', command: 'LASZIP', title: LAZ_REASON },
 ];
 
 export const FILE_ATTACH: FileMenuAction = { id: 'attach', label: 'Attach', command: 'XATTACH' };
@@ -49,7 +49,7 @@ export const FILE_EXPORT: FileMenuAction[] = [
   { id: 'stl', label: 'STL…', request: 'export-stl' },
   { id: 'gltf', label: 'glTF…', request: 'export-gltf' },
   { id: 'volume', label: 'Volume CSV…', request: 'export-volume' },
-  { id: 'laz', label: 'LAZ', disabled: true, title: LAZ_REASON },
+  { id: 'laz', label: 'LAZ', command: 'LASZIP', title: LAZ_REASON },
 ];
 
 export const DWG_SETTINGS: FileMenuAction = { id: 'dwg-settings', label: 'DWG Settings…', request: 'dwg-settings', title: DWG_VERDICT.reason };

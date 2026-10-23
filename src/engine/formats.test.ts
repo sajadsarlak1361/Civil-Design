@@ -1,3 +1,5 @@
+import { readFileSync } from 'node:fs';
+import { resolve } from 'node:path';
 import { describe, expect, it } from 'vitest';
 import { drawingToDxf, parseDxf, binaryLineDxf } from './formats/dxfDoc';
 import { dwgAvailable, DWG_VERDICT } from './formats/dwg';
@@ -13,6 +15,7 @@ import { FORMAT_CATALOG } from './formats/status';
 import { parseLandXml, surfaceToLandXml } from './landxml';
 import { parsePointFile, pointsToText } from './points';
 import { v3 } from './drafting';
+import { bindView, importDxf } from '../commands/runtime';
 
 const grid = (): GridRaster => ({
   cols: 2,
@@ -61,6 +64,39 @@ describe('drawing DXF', () => {
   it('reads a binary LINE', () => {
     const model = parseDxf(binaryLineDxf());
     expect(model.entities[0]).toMatchObject({ type: 'line', a: { x: 1, y: 2, z: 3 }, b: { x: 4, y: 5, z: 6 } });
+  });
+
+  it('opens the DXF fixture as a drawing', () => {
+    const bytes = readFileSync(resolve('src/engine/formats/fixtures/entities.dxf'));
+    expect(classifyFile('entities.dxf', bytes).kind).toBe('dxf');
+    const model = parseDxf(bytes);
+    expect(model.entities.some((entity) => entity.type === 'line')).toBe(true);
+    expect(model.layers.some((layer) => layer.toLowerCase() === 'road')).toBe(true);
+  });
+
+  it('frames an opened DXF in the current view', () => {
+    const framed: { x: number; y: number }[] = [];
+    bindView({
+      zoomExtents() {},
+      zoomWindow(a, b) {
+        framed.push(a, b);
+      },
+      zoomScale() {},
+      zoomPrevious() {},
+      panBy() {},
+      panDisplacement() {},
+      markOriginal() {},
+      zoomOriginal() {},
+      redraw() {},
+    });
+    try {
+      importDxf(parseDxf(readFileSync(resolve('src/engine/formats/fixtures/entities.dxf'))));
+      expect(framed).toHaveLength(2);
+      expect(framed[1].x).toBeGreaterThan(framed[0].x);
+      expect(framed[1].y).toBeGreaterThan(framed[0].y);
+    } finally {
+      bindView(null);
+    }
   });
 });
 
@@ -204,14 +240,15 @@ describe('shapefile, image, mesh, pdf', () => {
 });
 
 describe('format catalog', () => {
-  it('keeps DWG and LAZ closed', () => {
+  it('keeps DWG writable offline and LAZ closed', () => {
     expect(dwgAvailable()).toBe(true);
     expect(DWG_VERDICT.read).toBe('yes');
-    expect(DWG_VERDICT.write).toBe('partial');
+    expect(DWG_VERDICT.write).toBe('yes');
     expect(DWG_VERDICT.reason).toMatch(/GPL-3\.0/);
+    expect(DWG_VERDICT.reason).toMatch(/DWG 2000/);
     expect(DWG_VERDICT.reason).not.toMatch(/https?:\/\//);
     expect(FORMAT_CATALOG.find((row) => row.id === 'dwg')?.read).toBe('yes');
-    expect(FORMAT_CATALOG.find((row) => row.id === 'dwg')?.write).toBe('partial');
+    expect(FORMAT_CATALOG.find((row) => row.id === 'dwg')?.write).toBe('yes');
     expect(FORMAT_CATALOG.find((row) => row.id === 'laz')?.note).toMatch(/LAS 1\.2/);
     const dwg = classifyFile('site.dwg', new Uint8Array([0]));
     expect(dwg.kind).toBe('dwg');

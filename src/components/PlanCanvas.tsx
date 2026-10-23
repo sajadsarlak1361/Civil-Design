@@ -36,7 +36,7 @@ import { drawXrefs } from '../view/drawXrefs';
 import { drawPlan, visibleBounds } from '../view/drawPlan';
 import { paintGesture } from '../view/gestureDom';
 import { openNavMenu } from '../view/navUi';
-import { createGesture, reduceGesture, type NavCommand } from '../view/navigate';
+import { createGesture, reduceGesture, wheelDeltaY, type NavCommand } from '../view/navigate';
 import { getWorkspace, subscribeWorkspace } from '../view/workspace';
 
 export interface CursorReadout {
@@ -249,7 +249,6 @@ export function PlanCanvas({ active = true }: { active?: boolean }) {
     const unsubDraw = subscribeDrawing(() => draw());
     const unsubXref = subscribeXrefs(() => draw());
     let gesture = createGesture(false);
-    let wheelTimer = 0;
     let original: PlanCamera | null = null;
     const syncNavCursor = () => {
       const nav = navigationMode();
@@ -292,6 +291,12 @@ export function PlanCanvas({ active = true }: { active?: boolean }) {
           if (!(factor > 0)) return;
           pushCamera();
           cameraRef.current = { ...cameraRef.current, scale: cameraRef.current.scale * factor };
+          draw();
+        },
+        zoomCenter: (point, factor) => {
+          if (!(factor > 0)) return;
+          pushCamera();
+          cameraRef.current = { ...cameraRef.current, cx: point.x, cy: point.y, scale: cameraRef.current.scale * factor };
           draw();
         },
         zoomPrevious: () => {
@@ -384,6 +389,7 @@ export function PlanCanvas({ active = true }: { active?: boolean }) {
     const tolerance = () => 10 / Math.max(cameraRef.current.scale, 1e-9);
 
     const onPointerDown = (event: PointerEvent) => {
+      if (event.button === 1) event.preventDefault();
       const point = localPoint(event);
       const result = reduceGesture(gesture, {
         type: 'down',
@@ -406,7 +412,11 @@ export function PlanCanvas({ active = true }: { active?: boolean }) {
       }
       if (result.action === 'preview') {
         paintGesture(canvas, result, commitCamera);
-        canvas.setPointerCapture(event.pointerId);
+        try {
+          canvas.setPointerCapture(event.pointerId);
+        } catch {
+          // The button was already released, or this webview rejected capture.
+        }
         return;
       }
       button = event.button;
@@ -422,7 +432,11 @@ export function PlanCanvas({ active = true }: { active?: boolean }) {
           setSelectRect(selectOrigin, selectOrigin, [selectOrigin]);
         }
       }
-      canvas.setPointerCapture(event.pointerId);
+      try {
+        canvas.setPointerCapture(event.pointerId);
+      } catch {
+        // The button was already released, or this webview rejected capture.
+      }
     };
     const onPointerMove = (event: PointerEvent) => {
       const point = localPoint(event);
@@ -545,38 +559,42 @@ const xrefId = pickXref(getXrefDoc(), world.x, world.y);
         pickWorld([id], { x: world.x, y: world.y, z: 0 }, null, false, event.shiftKey);
         return;
       }
-      pickWorld([], { x: world.x, y: world.y, z: 0 }, null, false, event.shiftKey);
       const current = projectRef.current;
+      let surfaceKey: string | null = null;
       for (let i = current.state.surfaces.length - 1; i >= 0; i--) {
         const surface = current.state.surfaces[i];
         if (!surface.visible) continue;
         const z = elevationAt(surface.points, surface.triangles, world.x, world.y, bvhFor(surface.points, surface.triangles));
         if (z !== null) {
           current.setActive(surface.id);
+          surfaceKey = `surface:${surface.id}`;
           break;
         }
       }
+      pickWorld(surfaceKey ? [surfaceKey] : [], { x: world.x, y: world.y, z: 0 }, null, false, event.shiftKey);
     };
     const onWheel = (event: WheelEvent) => {
+      if (event.target !== canvas) return;
+      const deltaY = wheelDeltaY(event);
+      if (!deltaY) return;
       event.preventDefault();
       const point = localPoint(event);
       const result = reduceGesture(gesture, {
         type: 'wheel',
         x: point.x,
         y: point.y,
-        deltaY: event.deltaY,
+        deltaY,
         width: point.width,
         height: point.height,
         camera: cameraRef.current,
       });
       gesture = result.state;
-      paintGesture(canvas, result, commitCamera);
-      window.clearTimeout(wheelTimer);
-      wheelTimer = window.setTimeout(() => {
-        const committed = reduceGesture(gesture, { type: 'commit', width: point.width, height: point.height });
-        gesture = committed.state;
-        paintGesture(canvas, committed, commitCamera);
-      }, 140);
+      const committed = reduceGesture(gesture, { type: 'commit', width: point.width, height: point.height });
+      gesture = committed.state;
+      paintGesture(canvas, committed, commitCamera);
+    };
+    const onMouseDown = (event: MouseEvent) => {
+      if (event.button === 1) event.preventDefault();
     };
     const onLeave = () => setPlanCursor(null);
 
@@ -586,11 +604,12 @@ const xrefId = pickXref(getXrefDoc(), world.x, world.y);
     canvas.addEventListener('pointerup', onPointerUp);
     canvas.addEventListener('pointerleave', onLeave);
     canvas.addEventListener('wheel', onWheel, { passive: false });
+    canvas.addEventListener('mousedown', onMouseDown);
+    canvas.addEventListener('auxclick', onMouseDown);
     canvas.addEventListener('contextmenu', onContext);
     return () => {
       observer.disconnect();
       cancelAnimationFrame(cursorFrame);
-      window.clearTimeout(wheelTimer);
       unsubDraw();
       unsubXref();
       unsubWorkspace();
@@ -601,6 +620,8 @@ const xrefId = pickXref(getXrefDoc(), world.x, world.y);
       canvas.removeEventListener('pointerup', onPointerUp);
       canvas.removeEventListener('pointerleave', onLeave);
       canvas.removeEventListener('wheel', onWheel);
+      canvas.removeEventListener('mousedown', onMouseDown);
+      canvas.removeEventListener('auxclick', onMouseDown);
       canvas.removeEventListener('contextmenu', onContext);
     };
   }, [active, project.state.surfaces, project.state.fitToken, project.state.showVolumeMap, project.state.volumeResult, project.state.draft, project.state.tool, project.state.activeId, project.contours, project.state.unit, project.state.alignments, project.state.alignmentRadius, project.state.alignmentSpiral, project.state.activeAlignmentId, project.design, project.state.civil]);

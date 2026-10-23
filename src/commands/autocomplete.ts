@@ -41,6 +41,7 @@ export function suggestCommands(query: string, sources: SuggestSource[], limit =
   const ranked: Suggestion[] = [];
   const seen = new Set<string>();
   for (const source of sources) {
+    if (!source.implemented) continue;
     const names = [source.name, ...source.aliases];
     let best = -Infinity;
     let label = source.name;

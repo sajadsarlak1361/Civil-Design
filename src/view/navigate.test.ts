@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import type { PlanCamera } from './camera';
-import { classifyPointer, createGesture, cssTransform, previewBetween, REALTIME_NAV_PROMPT, reduceGesture, wheelZoomRatio, worldAt } from './navigate';
+import { classifyPointer, createGesture, cssTransform, previewBetween, REALTIME_NAV_PROMPT, reduceGesture, wheelDeltaY, wheelNotches, wheelZoomRatio, worldAt } from './navigate';
 
 const camera: PlanCamera = { cx: 10, cy: 20, scale: 2 };
 const size = { width: 200, height: 100 };
@@ -55,6 +55,14 @@ describe('navigation state machine', () => {
     const menu = down({ button: 2, x: 12, y: 18 });
     expect(menu.action).toBe('menu');
     expect(menu.consumed).toBe(true);
+  });
+
+  it('reads a desktop wheelDelta when deltaY is zero', () => {
+    expect(wheelDeltaY({ deltaY: 0, wheelDelta: 120 })).toBe(-120);
+    expect(wheelZoomRatio(wheelDeltaY({ deltaY: 0, wheelDelta: 120 }))).toBeGreaterThan(1);
+    expect(wheelDeltaY({ deltaY: 1, deltaMode: 1 })).toBe(40);
+    expect(wheelNotches(wheelDeltaY({ deltaY: 1, deltaMode: 1 }))).toBe(1);
+    expect(wheelDeltaY({ deltaY: 0 })).toBe(0);
   });
 
   it('zooms the wheel about the cursor with ZOOMFACTOR and leaves the command alone', () => {

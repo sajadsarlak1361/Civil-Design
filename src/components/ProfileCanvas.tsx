@@ -3,7 +3,7 @@ import { bindView } from '../commands/runtime';
 import { clipProfile, formatStation, geometryBand, profileSheets, type ProfileVertex, type SolvedAlignment } from '../engine';
 import { formatElevation } from '../lib/format';
 import { useProject } from '../state/store';
-import { fitCamera, worldToScreen, niceStep, type PlanCamera } from '../view/camera';
+import { fitCamera, panBy, worldToScreen, niceStep, type PlanCamera } from '../view/camera';
 import { attachSheetGestures } from '../view/gestureDom';
 
 export function ProfileCanvas({ active = true }: { active?: boolean }) {
@@ -182,6 +182,14 @@ export function ProfileCanvas({ active = true }: { active?: boolean }) {
         zoomOriginal: () => {
           if (!original) return;
           cameraRef.current = { ...original };
+          draw();
+        },
+        panScreen: (direction) => {
+          const width = parent.clientWidth;
+          const height = parent.clientHeight;
+          const dx = direction === 'left' ? width * 0.2 : direction === 'right' ? -width * 0.2 : 0;
+          const dy = direction === 'up' ? height * 0.2 : direction === 'down' ? -height * 0.2 : 0;
+          cameraRef.current = panBy(cameraRef.current, dx, dy);
           draw();
         },
         redraw: () => draw(),

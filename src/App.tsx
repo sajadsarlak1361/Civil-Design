@@ -9,11 +9,12 @@ import { readShp } from './engine/formats/shp';
 import { pointsToText } from './engine/points';
 import { attachXref, markNeedsReload, replaceXrefs, sampleXrefs, updateXrefs } from './engine/xref';
 import { getCpuLimit, setCpuLimit } from './engine/budget';
-import { heavyBinary, heavyText, readDemOffThread, readGeoTiffOffThread, readLasOffThread, readMeshOffThread, readXyzGridOffThread } from './engine/importWork';
-import { resizePool } from './engine/pool';
+import { heavyBinary, heavyText, readDemOffThread, readDxfOffThread, readGeoTiffOffThread, readLasOffThread, readMeshOffThread, readXyzGridOffThread } from './engine/importWork';
+import { poolAvailable, resizePool } from './engine/pool';
 import { subscribeTasks, taskSnapshot, tasks } from './engine/tasks';
 import type { TaskHandle } from './engine/tasks';
-import { bindHost, getCommandSnapshot, getDrawingModel, importDrawing, importDxf, importDwgModel, installDrawingHistory, reportLine, subscribeCommandUi, syncToolPrompt } from './commands/runtime';
+import { bindHost, getCommandSnapshot, getDrawingModel, importDrawing, importDxf, importDwgModel, installDrawingHistory, postMessage, reportLine, runCommand, subscribeCommandUi, subscribeDrawing, syncToolPrompt } from './commands/runtime';
+import { ODA_DOWNLOAD_URL } from './engine/formats/dwg';
 import { openDwg, saveDwg } from './engine/formats/dwgEngine';
 import { DwgSettingsDialog } from './components/DwgSettingsDialog';
 import { CommandLine } from './components/CommandLine';
@@ -25,6 +26,7 @@ import { CommandPanel } from './components/CommandPanel';
 import { ImportDialog } from './components/ImportDialog';
 import { Inspector } from './components/Inspector';
 import { Legend } from './components/Legend';
+import { NavBar } from './components/NavBar';
 import { NavCursor, NavMenu } from './components/NavMenu';
 import { PlanCanvas } from './components/PlanCanvas';
 import { ProfileCanvas } from './components/ProfileCanvas';
@@ -37,7 +39,9 @@ import { SectionCanvas } from './components/SectionCanvas';
 import { MeshCreateDialog, MeshSectionDialog } from './components/MeshDialogs';
 import { APP_TITLE, COPYRIGHT, COPYRIGHT_NOTE } from './brand';
 import { downloadBytes, downloadText } from './lib/download';
-import { desktopAvailable, desktopOpen, desktopSave, desktopWatch, onDesktopXrefChanged } from './lib/desktopFiles';
+import { DXF_BULK_BYTES, parseDxfFile } from './engine/formats/dxfStream';
+import { desktopAvailable, desktopFileSize, desktopOpen, desktopReadDxf, desktopReadPath, desktopSave, desktopTakeLaunchPath, desktopWatch, onDesktopOpenPaths, onDesktopXrefChanged } from './lib/desktopFiles';
+import { OPEN_ACCEPT, saveFilters } from './lib/openFiles';
 import { rememberRecent } from './lib/recentFiles';
 import { onUi } from './lib/uiBus';
 import { chromeMetrics, PALETTE_WIDTH } from './view/chromeLayout';
@@ -74,6 +78,7 @@ function Shell() {
   const [meshDialog, setMeshDialog] = useState<null | 'create' | 'section'>(null);
   const [dwgSettings, setDwgSettings] = useState(false);
   const units = unitLabels(project.state.unit);
+  const drawingEntities = useSyncExternalStore(subscribeDrawing, () => getDrawingModel().doc.entities.length, () => 0);
   const ingestRef = useRef<(name: string, bytes: Uint8Array) => void>(() => {});
 
   useEffect(() => {
@@ -117,11 +122,30 @@ function Shell() {
       openProject: () => {
         void (async () => {
           if (desktopAvailable()) {
-            const file = await desktopOpen();
-            if (file) {
-              ingestRef.current(file.name, file.bytes);
-              return;
+            try {
+              const file = await desktopOpen();
+              if (file?.streamDxf && file.byteLength) {
+                const stem = file.name.replace(/\.[^.]+$/, '') || file.name;
+                const task = tasks.start({ command: 'OPEN', title: `Reading DXF "${stem}"`, stages: ['Reading'], blocksInput: true });
+                try {
+                  const model = await desktopReadDxf(file.path, file.byteLength);
+                  task.finish();
+                  rememberRecent(file.path || file.name);
+                  importDxf(model);
+                } catch (error) {
+                  task.finish();
+                  window.alert(error instanceof Error ? error.message : 'Could not read that DXF.');
+                }
+                return;
+              }
+              if (file) {
+                rememberRecent(file.path || file.name);
+                ingestRef.current(file.name, file.bytes);
+              }
+            } catch (error) {
+              window.alert(error instanceof Error ? error.message : 'Could not open that file.');
             }
+            return;
           }
           document.getElementById('open-file')?.click();
         })();
@@ -206,6 +230,7 @@ function Shell() {
       redoProject: () => projectRef.current.redoSurface(),
       newProject: () => projectRef.current.newProject(),
       setUnit: (unit) => projectRef.current.setUnit(unit),
+      createVolumeSurface: () => projectRef.current.createVolumeSurface(),
     });
   }, []);
 
@@ -256,6 +281,17 @@ function Shell() {
       viewports(count: 1 | 2 | 3 | 4) {
         setLayout(count);
         projectRef.current.setView('3d');
+      },
+        drawing() {
+        const doc = getDrawingModel().doc;
+        const bulk = doc.bulk?.entityCount ?? 0;
+        return {
+          entities: bulk > 0 ? bulk : doc.entities.length,
+          bulk,
+          truncated: Boolean(doc.bulk?.truncated),
+          types: doc.entities.map((entity) => entity.type),
+          layers: doc.layers.map((layer) => layer.name),
+        };
       },
       seedMesh(name = 'Scan') {
         const points: { x: number; y: number; z: number }[] = [];
@@ -345,6 +381,10 @@ function Shell() {
       return;
     }
     if (classified.kind === 'dxf') {
+      if (bytes.byteLength >= DXF_BULK_BYTES && poolAvailable()) {
+        withBusy(`Reading DXF "${stem}"`, true, () => readDxfOffThread(bytes), (model) => importDxf(model), 'Could not read that DXF.');
+        return;
+      }
       importDxf(parseDxf(bytes));
       return;
     }
@@ -416,6 +456,10 @@ function Shell() {
       return;
     }
     let snapshot = { entities: [] as ReturnType<typeof parseDxf>['entities'], layers: [] as { name: string; color: string; visible: boolean; locked: boolean; lineType: string }[] };
+    if (classified.kind === 'dxf' && bytes.byteLength >= DXF_BULK_BYTES) {
+      window.alert('That DXF is large. Open it from File > Open.');
+      return;
+    }
     if (classified.kind === 'dxf') {
       const model = parseDxf(bytes);
       snapshot = {
@@ -428,6 +472,35 @@ function Shell() {
         entities: drawing.drawing?.entities ?? [],
         layers: drawing.drawing?.layers ?? [],
       };
+    } else if (classified.kind === 'dwg') {
+      void openDwg(name, bytes)
+        .then((imported) => {
+          updateXrefs((doc) =>
+            attachXref(doc, {
+              name: name.replace(/\.[^.]+$/, '') || name,
+              kind: 'dwg',
+              savedPath: path,
+              pathType: path.includes('/') || path.includes('\\') ? 'full' : 'relative',
+              snapshot: {
+                entities: imported.entities,
+                layers: imported.layers.map((layer) => ({
+                  name: layer.name,
+                  color: layer.color,
+                  visible: layer.visible,
+                  locked: layer.locked,
+                  lineType: layer.lineType,
+                })),
+              },
+              size: bytes.length,
+            }),
+          );
+          patchChrome({ xrefs: true });
+          if (path !== name) void desktopWatch(path);
+        })
+        .catch((error: unknown) => {
+          window.alert(error instanceof Error ? error.message : 'Could not read that DWG.');
+        });
+      return;
     } else {
       window.alert('Attach a DXF or Civil Design drawing. Images use Image.');
       return;
@@ -447,21 +520,125 @@ function Shell() {
   };
 
   const read = async (file: File) => {
+    if (file.size >= DXF_BULK_BYTES && /\.dxf$/i.test(file.name)) {
+      const stem = file.name.replace(/\.[^.]+$/, '') || file.name;
+      const task = tasks.start({ command: 'OPEN', title: `Reading DXF "${stem}"`, stages: ['Reading'], blocksInput: true });
+      try {
+        const model = await parseDxfFile(file);
+        task.finish();
+        rememberRecent(file.name);
+        importDxf(model);
+      } catch (error) {
+        task.finish();
+        if (error instanceof Error && error.name === 'AbortError') return;
+        window.alert(error instanceof Error ? error.message : 'Could not read that DXF.');
+      }
+      return;
+    }
     ingest(file.name, new Uint8Array(await file.arrayBuffer()));
   };
 
-  useEffect(() => onDesktopXrefChanged((path) => {
-    if (!path) return;
-    updateXrefs((doc) => {
-      let next = doc;
-      for (const record of doc.records) {
-        if (record.savedPath === path) next = markNeedsReload(next, record.id);
+  useEffect(() => {
+    if (!desktopAvailable()) return;
+    const openPaths = (paths: string[]) => {
+      for (const path of paths) {
+        void (async () => {
+          try {
+            if (/\.dxf$/i.test(path)) {
+              const size = await desktopFileSize(path);
+              if (size != null && size >= DXF_BULK_BYTES) {
+                const name = path.split(/[\\/]/).pop() || path;
+                const task = tasks.start({ command: 'OPEN', title: `Reading DXF "${name}"`, stages: ['Reading'], blocksInput: true });
+                try {
+                  const model = await desktopReadDxf(path, size);
+                  task.finish();
+                  rememberRecent(path);
+                  importDxf(model);
+                } catch (error) {
+                  task.finish();
+                  window.alert(error instanceof Error ? error.message : 'Could not read that DXF.');
+                }
+                return;
+              }
+            }
+            const file = await desktopReadPath(path);
+            ingestRef.current(file.name, file.bytes);
+          } catch (error) {
+            window.alert(error instanceof Error ? error.message : 'Could not open that file.');
+          }
+        })();
       }
-      return next;
-    });
-  }), []);
+    };
+    let stop = () => {};
+    try {
+      void desktopTakeLaunchPath()
+        .then((path) => {
+          if (path) openPaths([path]);
+        })
+        .catch(() => {});
+      stop = onDesktopOpenPaths(openPaths);
+    } catch {
+      stop = () => {};
+    }
+    return () => {
+      try {
+        stop();
+      } catch {
+        // Listener teardown must not unmount the menu bar.
+      }
+    };
+  }, []);
+
+  useEffect(() => {
+    let stop = () => {};
+    try {
+      stop = onDesktopXrefChanged((path) => {
+        if (!path) return;
+        updateXrefs((doc) => {
+          let next = doc;
+          for (const record of doc.records) {
+            if (record.savedPath === path) next = markNeedsReload(next, record.id);
+          }
+          return next;
+        });
+      });
+    } catch {
+      stop = () => {};
+    }
+    return () => {
+      try {
+        stop();
+      } catch {
+        // Listener teardown must not unmount the menu bar.
+      }
+    };
+  }, []);
 
   useEffect(() => onUi((request) => {
+    if (request === 'render') {
+      setVisualStyle('realistic');
+      projectRef.current.setView('3d');
+      window.setTimeout(() => {
+        const canvases = [...document.querySelectorAll('canvas')].filter((node): node is HTMLCanvasElement => node instanceof HTMLCanvasElement && node.getBoundingClientRect().width > 8);
+        const canvas = canvases.find((node) => node.classList.contains('vp-canvas') || node.classList.contains('scene-canvas')) ?? canvases[0];
+        if (!canvas) {
+          postMessage('Nothing on screen to render.');
+          return;
+        }
+        const slug = fileSlug(projectRef.current.state.name);
+        canvas.toBlob((blob) => {
+          if (!blob) {
+            postMessage('Could not render the view.');
+            return;
+          }
+          void blob.arrayBuffer().then((buffer) => {
+            downloadBytes(`${slug}-render.png`, new Uint8Array(buffer), 'image/png');
+            postMessage('Rendered the view to a PNG.');
+          });
+        }, 'image/png');
+      }, 400);
+      return;
+    }
     if (request === 'dwg-settings') {
       setDwgSettings(true);
       return;
@@ -470,6 +647,10 @@ function Shell() {
       void (async () => {
         if (desktopAvailable()) {
           const file = await desktopOpen();
+          if (file?.streamDxf) {
+            window.alert('That DXF is large. Open it from File > Open.');
+            return;
+          }
           if (file) attachDrawing(file.name, file.bytes, file.path);
           return;
         }
@@ -510,7 +691,10 @@ function Shell() {
         'application/xml',
       );
     }
-    if (request === 'export-csv' && active) downloadText(`${slug}-points.csv`, pointsToText(active.points, 'PNEZD', ','), 'text/csv');
+    if (request === 'export-csv') {
+      if (!active) postMessage('No surface to export.');
+      else downloadText(`${slug}-points.csv`, pointsToText(active.points, 'PNEZD', ','), 'text/csv');
+    }
     if (request === 'export-svg') downloadText(`${slug}.svg`, drawingToSvg(getDrawingModel().doc.entities), 'image/svg+xml');
     if (request === 'export-dwg') {
       const doc = getDrawingModel().doc;
@@ -528,19 +712,32 @@ function Shell() {
       )
         .then((saved) => {
           task.finish();
-          downloadBytes(`${slug}.${saved.extension}`, saved.bytes, saved.extension === 'dwg' ? 'image/vnd.dwg' : 'application/dxf');
-          if (saved.extension === 'dxf') window.alert(saved.note);
+          postMessage(saved.note);
+          const name = `${slug}.${saved.extension}`;
+          const mime = saved.extension === 'dwg' ? 'image/vnd.dwg' : 'application/dxf';
+          const warn = saved.extension === 'dxf' || saved.note.includes(ODA_DOWNLOAD_URL);
+          if (desktopAvailable()) {
+            void desktopSave(name, saved.bytes, saveFilters(saved.extension)).then((result) => {
+              if (result === 'failed') downloadBytes(name, saved.bytes, mime);
+              if (warn) window.alert(saved.note);
+            });
+            return;
+          }
+          downloadBytes(name, saved.bytes, mime);
+          if (warn) window.alert(saved.note);
         })
         .catch((error: unknown) => {
           task.finish();
           window.alert(error instanceof Error ? error.message : 'Could not write that DWG.');
         });
     }
-    if ((request === 'export-obj' || request === 'export-stl' || request === 'export-gltf') && active) {
-      if (request === 'export-obj') downloadText(`${slug}.obj`, surfaceToObj(active.points, active.triangles), 'model/obj');
-      if (request === 'export-stl') downloadText(`${slug}.stl`, surfaceToStl(active.points, active.triangles), 'model/stl');
-      if (request === 'export-gltf') downloadText(`${slug}.gltf`, surfaceToGltf(active.points, active.triangles), 'model/gltf+json');
+    if (request === 'export-obj' || request === 'export-stl' || request === 'export-gltf') {
+      if (!active) postMessage('No surface to export.');
+      else if (request === 'export-obj') downloadText(`${slug}.obj`, surfaceToObj(active.points, active.triangles), 'model/obj');
+      else if (request === 'export-stl') downloadText(`${slug}.stl`, surfaceToStl(active.points, active.triangles), 'model/stl');
+      else downloadText(`${slug}.gltf`, surfaceToGltf(active.points, active.triangles), 'model/gltf+json');
     }
+    if (request === 'export-volume' && !current.state.volumeResult) postMessage('No volume report yet.');
     if (request === 'export-volume' && current.state.volumeResult) {
       const result = current.state.volumeResult;
       const base = current.state.surfaces.find((surface) => surface.id === current.state.volumeSetup.baseId);
@@ -587,8 +784,9 @@ function Shell() {
 
   const onDrop = (event: DragEvent) => {
     event.preventDefault();
-    const file = event.dataTransfer.files[0];
-    if (file) void read(file);
+    const files = event.dataTransfer?.files;
+    if (!files) return;
+    for (const file of files) void read(file);
   };
 
   const view = project.state.view;
@@ -690,6 +888,7 @@ function Shell() {
           )}
           <section className={`pane pane-plan${showPlan ? '' : ' is-inactive'}`} inert={showPlan ? undefined : true}>
               <PlanCanvas active={showPlan} />
+              {ws.navBar && <NavBar />}
               <Legend />
               {project.state.sampleBanner && (
                 <div className="banner">
@@ -749,13 +948,15 @@ function Shell() {
             </section>
           <section className={`pane pane-profile${showProfile ? '' : ' is-inactive'}`} inert={showProfile ? undefined : true}>
               <ProfileCanvas active={showProfile} />
+              {ws.navBar && <NavBar />}
             </section>
           <section className={`pane pane-section${showSection ? '' : ' is-inactive'}`} inert={showSection ? undefined : true}>
               <SectionCanvas active={showSection} />
+              {ws.navBar && <NavBar />}
             </section>
           {project.state.command && <CommandPanel />}
           {project.state.booting && <div className="empty">Building sample terrain…</div>}
-          {!project.state.booting && project.state.surfaces.length === 0 && (
+          {!project.state.booting && project.state.surfaces.length === 0 && drawingEntities === 0 && (
             <div className="empty">
               <h2>No surfaces yet</h2>
               <p>Import points or a LandXML surface, or open the bundled sample terrain.</p>
@@ -771,19 +972,19 @@ function Shell() {
           )}
           {!rightDock && !clean && (
             <div className="dock-strips right">
-              <button type="button" className="dock-strip" onClick={() => patchChrome({ properties: true })}>Properties</button>
+              <button type="button" className="dock-strip" onClick={() => runCommand('PROPERTIES')}>Properties</button>
             </div>
           )}
         </main>
         {rightDock && (
-          <div className="dock-stack right" onMouseLeave={() => { if (!rightPin) patchChrome({ properties: false }); }}>
+          <div className="dock-stack right" onMouseLeave={() => { if (!rightPin && !commandSnap.propertiesOpen) patchChrome({ properties: false }); }}>
             <div className="dock-head">
               <strong>Properties</strong>
               <button type="button" onClick={() => setRightPin((pin) => !pin)}>{rightPin ? 'Pinned' : 'Auto-hide'}</button>
               <button type="button" aria-label="Close properties" onClick={() => patchChrome({ properties: false })}>×</button>
             </div>
             <button type="button" className="dock-resize left" aria-label="Resize properties" onPointerDown={(event) => dragWidth(rightWidth, event, -1, setRightWidth)} />
-            {commandSnap.propertiesOpen && <PropertiesPalette />}
+            {(commandSnap.propertiesOpen || inspectorOpen) && <PropertiesPalette />}
             {inspectorOpen && <Inspector />}
           </div>
         )}
@@ -811,7 +1012,7 @@ function Shell() {
         id="import-file"
         className="hidden-input"
         type="file"
-        accept=".csv,.txt,.xyz,.xml,.landxml,.dxf,.dwg,.dwt,.asc,.las,.shp,.tif,.tiff,.png,.jpg,.jpeg,.obj,.stl,.gltf,.fieldline,.json"
+        accept={OPEN_ACCEPT}
         onChange={(event) => {
           const file = event.target.files?.[0];
           event.target.value = '';
@@ -822,7 +1023,7 @@ function Shell() {
         id="xref-file"
         className="hidden-input"
         type="file"
-        accept=".dxf,.json,.fieldline"
+        accept=".dxf,.dwg,.dwt,.json,.fieldline"
         onChange={(event) => {
           const file = event.target.files?.[0];
           event.target.value = '';
@@ -846,7 +1047,7 @@ function Shell() {
         id="open-file"
         className="hidden-input"
         type="file"
-        accept=".fieldline,.json,.dxf,.dwg,.dwt,.xml,.landxml,.csv,.txt,.xyz,.asc,.las,.shp,.tif,.tiff,.png,.jpg,.jpeg,.obj,.stl,.gltf"
+        accept={OPEN_ACCEPT}
         onChange={(event) => {
           const file = event.target.files?.[0];
           event.target.value = '';

@@ -1,5 +1,4 @@
 import { Dwg_File_Type, LibreDwg, createModule, type LibreDwgEx } from '@mlightcad/libredwg-web';
-import { DWG_WRITE_LIMIT } from './dwg';
 import { mapDwgDatabase, type DwgDatabaseLike, type DwgImport } from './dwgMap';
 
 interface ReadRequest {
@@ -8,15 +7,6 @@ interface ReadRequest {
   bytes: Uint8Array;
   wasmUrl: string;
 }
-
-interface WriteRequest {
-  id: number;
-  op: 'write';
-  dxf: string;
-  version: string;
-}
-
-type Request = ReadRequest | WriteRequest;
 
 let ready: Promise<LibreDwgEx> | null = null;
 let loadedFrom = '';
@@ -40,14 +30,10 @@ const post = (data: object) => {
 };
 
 globalThis.addEventListener('message', (event: Event) => {
-  const data = (event as MessageEvent<Request>).data;
-  if (!data || typeof data.id !== 'number') return;
+  const data = (event as MessageEvent<ReadRequest>).data;
+  if (!data || data.op !== 'read' || typeof data.id !== 'number') return;
   void (async () => {
     try {
-      if (data.op === 'write') {
-        post({ id: data.id, bytes: null, note: DWG_WRITE_LIMIT, version: data.version });
-        return;
-      }
       const lib = await module(data.wasmUrl);
       const copy = new Uint8Array(data.bytes.byteLength);
       copy.set(data.bytes);

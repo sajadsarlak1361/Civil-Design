@@ -14,7 +14,15 @@ interface Tool {
 
 export function DraftPanels({ names }: { names: readonly string[] }) {
   const [, bump] = useState(0);
-  useEffect(() => subscribeDrawing(() => bump((value) => value + 1)), []);
+  useEffect(() => {
+    const tick = () => bump((value) => value + 1);
+    const offDraw = subscribeDrawing(tick);
+    const offModel = getDrawingModel().subscribe(tick);
+    return () => {
+      offDraw();
+      offModel();
+    };
+  }, []);
   const library = ensureLibrary(getDrawingModel().doc);
   const layers = getDrawingModel().doc.layers.map((layer) => layer.name);
   const show = (title: string) => names.includes(title);

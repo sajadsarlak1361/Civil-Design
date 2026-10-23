@@ -1,7 +1,7 @@
 import { clickWorld, navigationMode } from '../commands/runtime';
 import { screenToWorld, screenToWorldDown, type PlanCamera } from './camera';
 import { setNavDrag } from './navUi';
-import { createGesture, reduceGesture, type GestureOutcome, type NavCommand } from './navigate';
+import { createGesture, reduceGesture, wheelDeltaY, type GestureOutcome, type NavCommand } from './navigate';
 
 export function paintGesture(canvas: HTMLCanvasElement, outcome: GestureOutcome, commit: (camera: PlanCamera) => void): void {
   if (outcome.action === 'preview') {
@@ -29,7 +29,6 @@ export function attachSheetGestures(
   },
 ): () => void {
   let gesture = createGesture(Boolean(options.yDown));
-  let wheelTimer = 0;
   const commandOf = (): NavCommand => {
     const nav = navigationMode();
     if (nav === 'pan') return 'pan';
@@ -48,6 +47,7 @@ export function attachSheetGestures(
     return { x: event.clientX - rect.left, y: event.clientY - rect.top, width: rect.width, height: rect.height };
   };
   const onPointerDown = (event: PointerEvent) => {
+    if (event.button === 1) event.preventDefault();
     const point = local(event);
     const result = reduceGesture(gesture, {
       type: 'down',
@@ -71,7 +71,11 @@ export function attachSheetGestures(
     }
     if (result.action === 'preview') {
       paintGesture(canvas, result, commit);
-      canvas.setPointerCapture(event.pointerId);
+      try {
+        canvas.setPointerCapture(event.pointerId);
+      } catch {
+        // The button was already released, or this webview rejected capture.
+      }
     }
   };
   const onPointerMove = (event: PointerEvent) => {
@@ -106,38 +110,42 @@ export function attachSheetGestures(
     }
   };
   const onWheel = (event: WheelEvent) => {
+    const deltaY = wheelDeltaY(event);
+    if (!deltaY) return;
     event.preventDefault();
     const point = local(event);
     const result = reduceGesture(gesture, {
       type: 'wheel',
       x: point.x,
       y: point.y,
-      deltaY: event.deltaY,
+      deltaY,
       width: point.width,
       height: point.height,
       camera: options.getCamera(),
     });
     gesture = result.state;
-    paintGesture(canvas, result, commit);
-    window.clearTimeout(wheelTimer);
-    wheelTimer = window.setTimeout(() => {
-      const committed = reduceGesture(gesture, { type: 'commit', width: point.width, height: point.height });
-      gesture = committed.state;
-      paintGesture(canvas, committed, commit);
-    }, 140);
+    const committed = reduceGesture(gesture, { type: 'commit', width: point.width, height: point.height });
+    gesture = committed.state;
+    paintGesture(canvas, committed, commit);
+  };
+  const onMouseDown = (event: MouseEvent) => {
+    if (event.button === 1) event.preventDefault();
   };
   const onContext = (event: Event) => event.preventDefault();
   canvas.addEventListener('pointerdown', onPointerDown);
   canvas.addEventListener('pointermove', onPointerMove);
   canvas.addEventListener('pointerup', onPointerUp);
   canvas.addEventListener('wheel', onWheel, { passive: false });
+  canvas.addEventListener('mousedown', onMouseDown);
+  canvas.addEventListener('auxclick', onMouseDown);
   canvas.addEventListener('contextmenu', onContext);
   return () => {
-    window.clearTimeout(wheelTimer);
     canvas.removeEventListener('pointerdown', onPointerDown);
     canvas.removeEventListener('pointermove', onPointerMove);
     canvas.removeEventListener('pointerup', onPointerUp);
     canvas.removeEventListener('wheel', onWheel);
+    canvas.removeEventListener('mousedown', onMouseDown);
+    canvas.removeEventListener('auxclick', onMouseDown);
     canvas.removeEventListener('contextmenu', onContext);
   };
 }

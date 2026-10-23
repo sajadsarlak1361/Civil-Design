@@ -18,6 +18,16 @@ function point(x: number, y: number, z = 0): SessionInput {
 }
 
 describe('drafting commands', () => {
+  it('zooms by scale, center, and a dynamic window', () => {
+    const scale = replay('ZOOM', [{ kind: 'keyword', name: 'Scale' }, { kind: 'number', value: 2 }]);
+    expect(scale.result.session).toBeNull();
+    expect(scale.result.effects).toEqual([{ type: 'zoom-scale', factor: 2 }]);
+    const center = replay('ZOOM', [{ kind: 'keyword', name: 'Center' }, point(4, 5), { kind: 'number', value: 3 }]);
+    expect(center.result.effects[0]).toMatchObject({ type: 'zoom-center', factor: 3 });
+    const dynamic = replay('ZOOM', [{ kind: 'keyword', name: 'Dynamic' }]);
+    expect(dynamic.result.session?.phase).toBe('window');
+  });
+
   it('draws a line with close and undo', () => {
     const model = new DrawingModel();
     const settings = defaultSettings();

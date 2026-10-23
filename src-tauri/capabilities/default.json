@@ -9,9 +9,12 @@
     "dialog:default",
     "window-state:default",
     "allow-read-bytes",
+    "allow-file-size",
+    "allow-read-bytes-part",
     "allow-write-bytes",
     "allow-watch-xref",
     "allow-open-path",
+    "allow-take-launch-path",
     "allow-oda-probe",
     "allow-oda-convert"
   ]

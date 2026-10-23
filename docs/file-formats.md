@@ -6,13 +6,13 @@ File → Import and File → Export list every format. A row Civil Design cannot
 | --- | --- | --- | --- | --- |
 | Civil Design project | `.fieldline`, `.fieldline.json` | yes | yes | JSON, format id `fieldline-project`, version 1. Drawing entities and xrefs are included. Desktop save uses `.fieldline`. The browser download uses `.fieldline.json`. |
 | DXF | `.dxf` | yes | yes | ASCII and binary DXF. Entities: POINT, LINE, LWPOLYLINE, CIRCLE, ARC, TEXT, 3DFACE. |
-| DWG / DWT | `.dwg`, `.dwt` | yes | partial | See below. |
+| DWG / DWT | `.dwg`, `.dwt` | yes | yes | See below. |
 | LandXML | `.xml`, `.landxml` | yes | yes | Surfaces (`Pnts` / `Faces`), CgPoints, alignments, and profiles. Export is LandXML 1.2. |
 | Point file | `.csv`, `.txt`, `.xyz` | yes | yes | PNEZD, PENZD, PNEZ, PENZ, NEZ, ENZ, and XYZ. Delimiters are comma, whitespace, or tab. |
 | ASCII DEM | `.asc` | yes | yes | ESRI ASCII grid, and an XYZ grid of cell centers. |
 | GeoTIFF | `.tif`, `.tiff` | partial | partial | Uncompressed float32 with a tie point and a pixel scale. LZW, JPEG, Deflate, and PackBits are refused. |
 | LAS | `.las` | yes | yes | LAS 1.2, point record format 0 (20 bytes). |
-| LAZ | `.laz` | no | no | Greyed out. LAZ needs a decompressor that is not bundled. Export the cloud as LAS. |
+| LAZ | `.laz` | no | no | The menu item explains that a decompressor is not bundled, then opens the file dialog. A `.laz` file is still refused. Export the cloud as LAS. |
 | Shapefile | `.shp` | yes | yes | Point, polyline, and polygon. Attributes in `.dbf` are not read. |
 | Image | `.png`, `.jpg`, `.jpeg` | yes | partial | Attach reads width and height. PNG export is the current view. |
 | PDF | `.pdf` | no | yes | One-page Flate RGB plot. A PDF underlay is not bundled. |
@@ -32,21 +32,25 @@ The unit (meters or feet) is a label for LandXML, stationing, and the volume rep
 
 ## DWG
 
-LibreDWG 0.14, packaged as `@mlightcad/libredwg-web` 0.8.2, is compiled into the page and the desktop app. The first DWG open loads it in a worker. That module reads R14 through 2018. The published module does not include a DWG writer. GPL-3.0 credit is in `THIRD_PARTY_NOTICES.md`.
+LibreDWG reads and writes DWG offline in the browser and on the desktop. No other program is required for reading, or for writing DWG 2000 and DWG 2004.
 
-**Browser and `civil-design.html`.** Open reads the DWG with LibreDWG. Save As of a DWG writes the DXF that a later `dxf2dwg` step can consume. There is no ODA path in the single-file page.
+The reader is LibreDWG 0.14, packaged as `@mlightcad/libredwg-web` 0.8.2. The first DWG open loads it in a worker. It reads R14 through 2018. That published package does not include a writer, so Civil Design also bundles a second LibreDWG module, built with the write API from commit `a8ccb1f3`. The wrapper is `src/engine/formats/vendor/cd-dxf2dwg.c`. GPL-3.0 credit is in `THIRD_PARTY_NOTICES.md`.
 
-**Desktop.** File → DWG Settings stores the engine in `localStorage` under `fieldline.dwg`:
+File → Export → DWG writes a DWG file. File → Save, Save As, and `DXFOUT` still write the project JSON.
+
+**Browser and `civil-design.html`.** Open and Export → DWG both use the bundled LibreDWG modules. There is no converter in the page. DWG 2000 and DWG 2004 are written directly. A newer save version still produces a DWG 2000 file, and the message includes the download address for ODA File Converter.
+
+**Desktop.** File → DWG Settings stores the engine in `localStorage` under `fieldline.dwg`. The default save version is DWG 2000.
 
 | Engine | Behavior |
 | --- | --- |
-| Auto | Use ODA File Converter when it is found. Otherwise read with LibreDWG and write DXF. |
-| LibreDWG | Always the bundled reader. Write stays DXF. |
+| Auto | Write DWG 2000 or DWG 2004 with LibreDWG. For 2007 and later, use ODA File Converter when it is found. Otherwise write DWG 2000 and show the download address. |
+| LibreDWG | Always the bundled reader and writer. Newer versions are saved as DWG 2000. |
 | ODA | Require ODA File Converter. |
 
-ODA is not shipped. Windows looks in `Program Files\ODA\ODAFileConverter` and in versioned folders beside it. Linux looks at `/usr/bin/ODAFileConverter`, `/usr/local/bin/ODAFileConverter`, `/opt/ODAFileConverter/ODAFileConverter`, and `ODAFileConverter` under the home directory. You can set another path in DWG Settings.
+ODA is not shipped. The download address is `https://www.opendesign.com/guestfiles/oda_file_converter`. Windows looks in `Program Files\ODA\ODAFileConverter` and in versioned folders beside it. Linux looks at `/usr/bin/ODAFileConverter`, `/usr/local/bin/ODAFileConverter`, `/opt/ODAFileConverter/ODAFileConverter`, and `ODAFileConverter` under the home directory. You can set another path in DWG Settings.
 
-When ODA is installed, desktop save converts the DXF to DWG at the chosen version: 2000, 2004, 2007, 2010, 2013, or 2018. LibreDWG's own writer, used only to generate CI samples, encodes 2000 and 2004 reliably. It does not encode 2007, and 2010 through 2018 writes are still planned upstream. Those versions in the app go through ODA.
+LibreDWG encodes 2000 and 2004. It does not encode 2007, and 2010 through 2018 writes are still planned upstream. Those versions are written only when ODA File Converter is installed. A DWG 2004 file from this writer is much larger than the same drawing saved as DWG 2000.
 
 Mapped drawing entities are line, polyline, arc, circle, text, point, 3DFACE, and block inserts. Other entity types are skipped.
 

@@ -1,6 +1,6 @@
 import { navigationMode, subscribeCommandUi } from '../commands/runtime';
 import { openNavMenu, setNavDrag } from './navUi';
-import { classifyPointer, NAV_MENU_3D, wheelZoomRatio, type NavCommand } from './navigate';
+import { classifyPointer, NAV_MENU_3D, wheelDeltaY, wheelZoomRatio, type NavCommand } from './navigate';
 import { orbitConstrained, orbitFree, panGrab, pointAtDepth, rayFromPixel, targetDepth, zoomToward, type Pose, type Vec3 } from './pan3d';
 
 export interface Nav3dView {
@@ -138,23 +138,30 @@ export function attach3dNav(element: HTMLElement, api: Nav3dApi): () => void {
   };
 
   const onWheel = (event: WheelEvent) => {
+    const deltaY = wheelDeltaY(event);
+    if (!deltaY) return;
+    event.preventDefault();
     const picked = api.pick(event.clientX, event.clientY);
     if (!picked) return;
-    const ratio = wheelZoomRatio(event.deltaY);
+    const ratio = wheelZoomRatio(deltaY);
     if (ratio === 1) return;
     const { id, view } = picked;
     const next = zoomToward(view.pose, focusOf(id, view), ratio);
     api.apply(id, next);
     api.render();
-    event.preventDefault();
   };
 
+  const onMouseDown = (event: MouseEvent) => {
+    if (event.button === 1) event.preventDefault();
+  };
   const onMenu = (event: Event) => event.preventDefault();
   element.addEventListener('pointerdown', onDown);
   element.addEventListener('pointermove', onMove);
   element.addEventListener('pointerup', onUp);
   element.addEventListener('pointercancel', onUp);
   element.addEventListener('wheel', onWheel, { passive: false });
+  element.addEventListener('mousedown', onMouseDown);
+  element.addEventListener('auxclick', onMouseDown);
   element.addEventListener('contextmenu', onMenu);
   const unsub = subscribeCommandUi(syncCursor);
   syncCursor();
@@ -164,6 +171,8 @@ export function attach3dNav(element: HTMLElement, api: Nav3dApi): () => void {
     element.removeEventListener('pointerup', onUp);
     element.removeEventListener('pointercancel', onUp);
     element.removeEventListener('wheel', onWheel);
+    element.removeEventListener('mousedown', onMouseDown);
+    element.removeEventListener('auxclick', onMouseDown);
     element.removeEventListener('contextmenu', onMenu);
     unsub();
     if (drag) setNavDrag(null);

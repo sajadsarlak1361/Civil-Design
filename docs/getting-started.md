@@ -38,7 +38,7 @@ LandXML surfaces and CgPoints use File → Import → LandXML, or `LANDXMLIN`.
 
 In the surface inspector, choose a base surface and either a comparison surface or a datum elevation, then **Compute volume**. Cut means the base is above the comparison. Fill means the comparison is higher. Net is fill minus cut. The map colors the overlap. File → Export → Volume CSV writes the report when a result exists. When the project unit is feet, the report also lists cubic yards.
 
-The Analyze ribbon button **Volume Surface** runs `CREATESURFACECOMPOSITE`, which this build recognizes and does not run.
+The Analyze ribbon button **Volume Surface** runs `CREATESURFACECOMPOSITE`. It adds a surface whose elevation is the depth, using the inspector's base and comparison when those are set, otherwise the active surface against the next surface or the datum.
 
 ## Save
 
