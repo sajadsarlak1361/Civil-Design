@@ -160,8 +160,8 @@ function emptyState(): AppState {
     showVolumeMap: false,
     volumeResult: null,
     sampleBanner: false,
-    booting: true,
-    status: 'Loading sample terrain…',
+    booting: false,
+    status: 'Ready.',
     tool: 'pan',
     draft: [],
     breaklineElevation: '',
@@ -655,13 +655,6 @@ export function ProjectProvider({ children }: { children: ReactNode }) {
       });
     }
   }, []);
-
-  const booted = useRef(false);
-  useEffect(() => {
-    if (booted.current) return;
-    booted.current = true;
-    void loadSample();
-  }, [loadSample]);
 
   const contourCache = useRef(new Map<string, ContourPolyline[]>());
   const [contourEpoch, setContourEpoch] = useState(0);

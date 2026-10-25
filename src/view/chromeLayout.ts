@@ -12,10 +12,10 @@ export function nextRibbonMode(mode: RibbonMode): RibbonMode {
 /** Tall windows (above this height) use the full ribbon body and a 3-line command line. */
 export const SHORT_WINDOW = 820;
 
-const TALL = { menu: 22, tabs: 24, ribbon: 90, command: 48, status: 22 };
-const SHORT = { menu: 20, tabs: 22, ribbon: 68, command: 22, status: 20 };
+const TALL = { menu: 20, tabs: 20, ribbon: 72, command: 40, status: 20 };
+const SHORT = { menu: 18, tabs: 18, ribbon: 56, command: 20, status: 18 };
 
-export const PALETTE_WIDTH = 260;
+export const PALETTE_WIDTH = 220;
 export const PALETTE_STRIP = 22;
 
 export interface ChromeMetrics {
@@ -58,7 +58,7 @@ export function drawingShare(width: number, height: number, mode: RibbonMode = '
 /** How many panels from the right collapse to a single dropdown so the row fits. */
 export function panelsToCollapse(panelWidths: number[], available: number): number {
   if (available <= 0) return panelWidths.length;
-  const collapsed = 28;
+  const collapsed = 22;
   let used = panelWidths.reduce((sum, width) => sum + width, 0);
   let hide = 0;
   while (used > available + 1 && hide < panelWidths.length) {

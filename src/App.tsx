@@ -13,7 +13,7 @@ import { heavyBinary, heavyText, readDemOffThread, readDxfOffThread, readGeoTiff
 import { poolAvailable, resizePool } from './engine/pool';
 import { subscribeTasks, taskSnapshot, tasks } from './engine/tasks';
 import type { TaskHandle } from './engine/tasks';
-import { bindHost, getCommandSnapshot, getDrawingModel, importDrawing, importDxf, importDwgModel, installDrawingHistory, postMessage, reportLine, runCommand, subscribeCommandUi, subscribeDrawing, syncToolPrompt } from './commands/runtime';
+import { bindHost, getCommandSnapshot, getDrawingModel, importDrawing, importDxf, importDwgModel, installDrawingHistory, postMessage, reportLine, runCommand, subscribeCommandUi, syncToolPrompt } from './commands/runtime';
 import { ODA_DOWNLOAD_URL } from './engine/formats/dwg';
 import { openDwg, saveDwg } from './engine/formats/dwgEngine';
 import { DwgSettingsDialog } from './components/DwgSettingsDialog';
@@ -78,7 +78,6 @@ function Shell() {
   const [meshDialog, setMeshDialog] = useState<null | 'create' | 'section'>(null);
   const [dwgSettings, setDwgSettings] = useState(false);
   const units = unitLabels(project.state.unit);
-  const drawingEntities = useSyncExternalStore(subscribeDrawing, () => getDrawingModel().doc.entities.length, () => 0);
   const ingestRef = useRef<(name: string, bytes: Uint8Array) => void>(() => {});
 
   useEffect(() => {
@@ -830,7 +829,7 @@ function Shell() {
   const dragWidth = (start: number, event: ReactPointerEvent<HTMLButtonElement>, sign: 1 | -1, setWidth: (value: number) => void) => {
     event.preventDefault();
     const origin = event.clientX;
-    const move = (ev: PointerEvent) => setWidth(Math.min(480, Math.max(180, start + sign * (ev.clientX - origin))));
+    const move = (ev: PointerEvent) => setWidth(Math.min(420, Math.max(160, start + sign * (ev.clientX - origin))));
     const up = () => {
       window.removeEventListener('pointermove', move);
       window.removeEventListener('pointerup', up);
@@ -955,21 +954,6 @@ function Shell() {
               {ws.navBar && <NavBar />}
             </section>
           {project.state.command && <CommandPanel />}
-          {project.state.booting && <div className="empty">Building sample terrain…</div>}
-          {!project.state.booting && project.state.surfaces.length === 0 && drawingEntities === 0 && (
-            <div className="empty">
-              <h2>No surfaces yet</h2>
-              <p>Import points or a LandXML surface, or open the bundled sample terrain.</p>
-              <div className="button-row">
-                <button type="button" className="primary" onClick={() => void project.loadSample()}>
-                  Load sample terrain
-                </button>
-                <button type="button" onClick={() => document.getElementById('import-file')?.click()}>
-                  Import points
-                </button>
-              </div>
-            </div>
-          )}
           {!rightDock && !clean && (
             <div className="dock-strips right">
               <button type="button" className="dock-strip" onClick={() => runCommand('PROPERTIES')}>Properties</button>

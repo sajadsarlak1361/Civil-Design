@@ -7,11 +7,11 @@ describe('compact chrome', () => {
     const share = drawingShare(1920, 1080, 'full', 0);
     expect(share).toBeGreaterThanOrEqual(0.8);
     const metrics = chromeMetrics(1080, 'full');
-    expect(metrics.menu).toBe(22);
-    expect(metrics.tabs).toBe(24);
-    expect(metrics.ribbon).toBe(90);
-    expect(metrics.command).toBe(48);
-    expect(metrics.status).toBe(22);
+    expect(metrics.menu).toBe(20);
+    expect(metrics.tabs).toBe(20);
+    expect(metrics.ribbon).toBe(72);
+    expect(metrics.command).toBe(40);
+    expect(metrics.status).toBe(20);
   });
 
   it('leaves at least 80% of a 1366×768 window with the ribbon expanded and palettes collapsed', () => {
