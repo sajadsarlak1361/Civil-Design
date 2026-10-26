@@ -1,7 +1,14 @@
 import type { SurveyPoint } from './types';
 
-export type PointFormat = 'PNEZD' | 'PENZD' | 'PNEZ' | 'PENZ' | 'NEZ' | 'ENZ';
+export type PointFormat = 'PNEZD' | 'PENZD' | 'PNEZ' | 'PENZ' | 'NEZ' | 'ENZ' | 'XYZ';
 export type FormatChoice = 'auto' | PointFormat;
+export type PointColumnKey = 'point' | 'x' | 'y' | 'z' | 'description';
+
+/** One file column, in the order that format reads and the import preview shows. */
+export interface PointColumn {
+  key: PointColumnKey;
+  label: string;
+}
 export type DelimiterChoice = 'auto' | 'comma' | 'whitespace' | 'tab';
 
 export interface SkippedLine {
@@ -17,7 +24,37 @@ export interface PointParseResult {
   format: PointFormat;
 }
 
-const FORMATS: PointFormat[] = ['PNEZD', 'PENZD', 'PNEZ', 'PENZ', 'NEZ', 'ENZ'];
+const FORMATS: PointFormat[] = ['PNEZD', 'PENZD', 'PNEZ', 'PENZ', 'NEZ', 'ENZ', 'XYZ'];
+
+const POINT_COL: PointColumn = { key: 'point', label: 'Point' };
+const X_COL: PointColumn = { key: 'x', label: 'X Easting' };
+const Y_COL: PointColumn = { key: 'y', label: 'Y Northing' };
+const Z_COL: PointColumn = { key: 'z', label: 'Z Elevation' };
+const DESC_COL: PointColumn = { key: 'description', label: 'Description' };
+
+/** Column order and axis labels for a point format. X is easting, Y is northing, Z is elevation. */
+export function pointFormatColumns(format: PointFormat): PointColumn[] {
+  switch (format) {
+    case 'PNEZD':
+      return [POINT_COL, Y_COL, X_COL, Z_COL, DESC_COL];
+    case 'PENZD':
+      return [POINT_COL, X_COL, Y_COL, Z_COL, DESC_COL];
+    case 'PNEZ':
+      return [POINT_COL, Y_COL, X_COL, Z_COL];
+    case 'PENZ':
+      return [POINT_COL, X_COL, Y_COL, Z_COL];
+    case 'NEZ':
+      return [Y_COL, X_COL, Z_COL];
+    case 'ENZ':
+      return [X_COL, Y_COL, Z_COL];
+    case 'XYZ':
+      return [
+        { key: 'x', label: 'X' },
+        { key: 'y', label: 'Y' },
+        { key: 'z', label: 'Z' },
+      ];
+  }
+}
 
 export function isPointFormat(value: string): value is PointFormat {
   return (FORMATS as string[]).includes(value);
@@ -81,7 +118,7 @@ function numeric(value: string): number | null {
 }
 
 function fieldCount(format: PointFormat): number {
-  if (format === 'NEZ' || format === 'ENZ') return 3;
+  if (format === 'NEZ' || format === 'ENZ' || format === 'XYZ') return 3;
   return 4;
 }
 
@@ -126,6 +163,7 @@ function parseRow(fields: string[], format: PointFormat): SurveyPoint | null {
       descStart = 3;
       break;
     case 'ENZ':
+    case 'XYZ':
       easting = numeric(fields[0]);
       northing = numeric(fields[1]);
       elevation = numeric(fields[2]);
@@ -266,7 +304,7 @@ export function pointsToText(points: SurveyPoint[], format: PointFormat = 'PNEZD
         return join(fields);
       }
       if (format === 'NEZ') return join([point.y, point.x, point.z]);
-      if (format === 'ENZ') return join([point.x, point.y, point.z]);
+      if (format === 'ENZ' || format === 'XYZ') return join([point.x, point.y, point.z]);
       const fields: (string | number)[] = [number, point.y, point.x, point.z];
       if (format === 'PNEZD' && description) fields.push(description);
       return join(fields);

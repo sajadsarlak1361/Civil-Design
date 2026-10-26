@@ -1,8 +1,16 @@
 import { useMemo, useState } from 'react';
-import { looksLikeLandXml, parseLandXml, parsePointFile, type DelimiterChoice, type FormatChoice } from '../engine';
+import { looksLikeLandXml, parseLandXml, parsePointFile, pointFormatColumns, type DelimiterChoice, type FormatChoice, type PointColumnKey, type SurveyPoint } from '../engine';
 import { formatNumber } from '../lib/format';
 
-const FORMATS: FormatChoice[] = ['auto', 'PNEZD', 'PENZD', 'PNEZ', 'PENZ', 'NEZ', 'ENZ'];
+const FORMATS: FormatChoice[] = ['auto', 'PNEZD', 'PENZD', 'PNEZ', 'PENZ', 'NEZ', 'ENZ', 'XYZ'];
+
+function previewCell(point: SurveyPoint, key: PointColumnKey): string {
+  if (key === 'point') return point.number ?? '';
+  if (key === 'description') return point.description ?? '';
+  if (key === 'x') return formatNumber(point.x, 3);
+  if (key === 'y') return formatNumber(point.y, 3);
+  return formatNumber(point.z, 3);
+}
 
 interface ImportDialogProps {
   filename: string;
@@ -19,6 +27,7 @@ export function ImportDialog({ filename, text, onClose, onPoints, onLandXml }: I
   const [delimiter, setDelimiter] = useState<DelimiterChoice>('auto');
   const [name, setName] = useState(filename.replace(/\.[^.]+$/, '') || 'Surface');
   const parsed = useMemo(() => (landXml ? null : parsePointFile(text, { format, delimiter })), [delimiter, format, landXml, text]);
+  const columns = useMemo(() => (parsed ? pointFormatColumns(parsed.format) : []), [parsed]);
 
   const bounds = useMemo(() => {
     if (!parsed || parsed.points.length === 0) return null;
@@ -104,25 +113,28 @@ export function ImportDialog({ filename, text, onClose, onPoints, onLandXml }: I
                 ? ` · E ${formatNumber(bounds.minX, 2)} to ${formatNumber(bounds.maxX, 2)} · N ${formatNumber(bounds.minY, 2)} to ${formatNumber(bounds.maxY, 2)} · Z ${formatNumber(bounds.minZ, 2)} to ${formatNumber(bounds.maxZ, 2)}`
                 : ''}
             </p>
+            <p className="hint column-map" data-format={parsed.format}>
+              {columns.map((column, index) => `${index + 1} ${column.label}`).join(' · ')}
+            </p>
             <div className="preview-wrap">
-              <table>
+              <table key={parsed.format}>
                 <thead>
                   <tr>
-                    <th>Point</th>
-                    <th>Northing</th>
-                    <th>Easting</th>
-                    <th>Elevation</th>
-                    <th>Description</th>
+                    {columns.map((column) => (
+                      <th key={`${parsed.format}-${column.key}`} data-axis={column.key}>
+                        {column.label}
+                      </th>
+                    ))}
                   </tr>
                 </thead>
                 <tbody>
                   {parsed.points.slice(0, 12).map((point, index) => (
-                    <tr key={`${point.number ?? index}-${index}`}>
-                      <td>{point.number ?? ''}</td>
-                      <td>{formatNumber(point.y, 3)}</td>
-                      <td>{formatNumber(point.x, 3)}</td>
-                      <td>{formatNumber(point.z, 3)}</td>
-                      <td>{point.description ?? ''}</td>
+                    <tr key={`${parsed.format}-${point.number ?? index}-${index}`}>
+                      {columns.map((column) => (
+                        <td key={`${parsed.format}-${column.key}`} data-axis={column.key}>
+                          {previewCell(point, column.key)}
+                        </td>
+                      ))}
                     </tr>
                   ))}
                 </tbody>
