@@ -18,8 +18,8 @@ import { useProject } from '../state/store';
 import { visibleBounds } from '../view/drawPlan';
 import { attach3dNav, type Nav3dView } from '../view/nav3d';
 import { navDrag } from '../view/navUi';
-import { orbitConstrained, type Pose } from '../view/pan3d';
-import { presetVectors, setActivePreset } from '../view/workspace';
+import { orbitConstrained, stepLocomotion, type Pose } from '../view/pan3d';
+import { getWorkspace, presetVectors, setActivePreset } from '../view/workspace';
 import { useWorkspace } from '../view/useWorkspace';
 import { NavBar } from './NavBar';
 import { ViewCube } from './ViewCube';
@@ -59,7 +59,7 @@ export function Scene3D({ active = true, bind = false }: { active?: boolean; bin
   useEffect(() => {
     const mount = mountRef.current;
     if (!mount) return;
-    const renderer = new THREE.WebGLRenderer({ antialias: true });
+    const renderer = new THREE.WebGLRenderer({ antialias: true, preserveDrawingBuffer: true });
     renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, 2));
     renderer.setClearColor('#0b0d11');
     renderer.domElement.className = 'scene-canvas';
@@ -402,6 +402,53 @@ export function Scene3D({ active = true, bind = false }: { active?: boolean; bin
     }
     requestRef.current();
   }, [apiEpoch, ws]);
+
+  useEffect(() => {
+    const mode = ws.locomotion;
+    document.documentElement.dataset.locomotion = mode;
+    const api = apiRef.current;
+    if (!api) return;
+    api.renderer.domElement.dataset.locomotion = mode;
+    if (mode === 'none') return;
+    const nudge = (direction: 'forward' | 'back' | 'left' | 'right' | 'up' | 'down') => {
+      const current = apiRef.current;
+      if (!current) return;
+      const pose: Pose = {
+        position: [current.camera.position.x, current.camera.position.y, current.camera.position.z],
+        target: [current.controls.target.x, current.controls.target.y, current.controls.target.z],
+        up: [current.camera.up.x, current.camera.up.y, current.camera.up.z],
+      };
+      const distance = Math.max(current.camera.position.distanceTo(current.controls.target) * 0.08, 1);
+      const next = stepLocomotion(pose, direction, distance, mode === 'fly');
+      current.camera.position.set(next.position[0], next.position[1], next.position[2]);
+      current.controls.target.set(next.target[0], next.target[1], next.target[2]);
+      current.camera.up.set(next.up[0], next.up[1], next.up[2]);
+      current.renderer.domElement.dataset.stepped = '1';
+      requestRef.current();
+    };
+    nudge('forward');
+    const onKey = (event: KeyboardEvent) => {
+      if (getWorkspace().locomotion === 'none') return;
+      const target = event.target;
+      const commandField = target instanceof HTMLElement && Boolean(target.closest('.command-dock'));
+      if (!commandField && (target instanceof HTMLInputElement || target instanceof HTMLTextAreaElement || (target instanceof HTMLElement && target.isContentEditable))) return;
+      const key = event.key.toLowerCase();
+      const direction =
+        key === 'arrowup' || key === 'w' ? 'forward'
+        : key === 'arrowdown' || key === 's' ? 'back'
+        : key === 'arrowleft' || key === 'a' ? 'left'
+        : key === 'arrowright' || key === 'd' ? 'right'
+        : key === 'q' || key === 'pageup' ? 'up'
+        : key === 'e' || key === 'pagedown' ? 'down'
+        : null;
+      if (!direction) return;
+      if ((direction === 'up' || direction === 'down') && getWorkspace().locomotion !== 'fly') return;
+      event.preventDefault();
+      nudge(direction);
+    };
+    window.addEventListener('keydown', onKey);
+    return () => window.removeEventListener('keydown', onKey);
+  }, [apiEpoch, ws.locomotion]);
 
   return (
     <div className="scene-mount" ref={mountRef}>

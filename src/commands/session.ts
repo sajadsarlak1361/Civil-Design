@@ -141,6 +141,7 @@ export type SessionEffect =
   | { type: 'zoom-extents' }
   | { type: 'zoom-window'; a: Vec3; b: Vec3 }
   | { type: 'zoom-scale'; factor: number }
+  | { type: 'zoom-center'; point: Vec3; factor: number }
   | { type: 'zoom-previous' }
   | { type: 'pan-by'; a: Vec3; b: Vec3 }
   | { type: 'pan-displacement'; x: number; y: number }
@@ -166,7 +167,7 @@ export interface SessionResult {
 export const SESSION_COMMANDS = new Set<string>([
   'LINE', 'PLINE', 'CIRCLE', 'ARC', 'RECTANG', 'POLYGON', 'POINT', 'TEXT', 'MTEXT',
   'MOVE', 'COPY', 'ROTATE', 'SCALE', 'MIRROR', 'OFFSET', 'TRIM', 'EXTEND', 'FILLET', 'CHAMFER',
-  'ERASE', 'EXPLODE', 'JOIN', 'STRETCH', 'LIST', 'DIST', 'ID', 'AREA', 'PROPERTIES',
+  'ERASE', 'EXPLODE', 'JOIN', 'STRETCH', 'LIST', 'DIST', 'ID', 'AREA',
   'ZOOM', 'PAN', '-PAN', 'LAYER', '-LAYER', 'LINETYPE', '-LINETYPE', 'LTSCALE', 'COLOR', 'CHPROP', '-CHPROP', 'MATCHPROP',
   'LOCKOBJECT', 'UNLOCKOBJECT',
   'LAYISO', 'LAYOFF', 'LAYFRZ', 'LAYLCK', 'LAYULK', 'LAYMCUR', 'LAYCUR', 'LAYMCH', 'LAYMRG', 'LAYDEL',
@@ -285,7 +286,7 @@ export function beginCommand(command: string, model: DrawingModel, settings: Cad
   if (name === 'DIST') return show(blank(name, 'p1'), prompt('Specify first point', 'point'));
   if (name === 'ID') return show(blank(name, 'point'), prompt('Specify point', 'point'));
   if (name === 'AREA') return show(blank(name, 'points'), prompt('Specify first corner point or', 'point', ['Object', 'Undo']));
-  if (name === 'ZOOM') return show(blank(name, 'main'), prompt('Specify corner of window, enter a scale factor, or', 'any', ['Extents', 'Window', 'Previous', 'All'], 'Extents'));
+  if (name === 'ZOOM') return show(blank(name, 'main'), prompt('Specify corner of window, enter a scale factor, or', 'any', ['Extents', 'Window', 'Dynamic', 'Scale', 'Center', 'Previous', 'All'], 'Extents'));
   if (name === 'PAN') return show(blank(name, 'realtime'), realtimePrompt(), [], [{ type: 'nav-mark' }]);
   if (name === '-PAN') return show(blank(name, 'base'), prompt('Specify base point or displacement:', 'point'));
   if (name === 'OFFSET') {
@@ -361,7 +362,7 @@ export function beginCommand(command: string, model: DrawingModel, settings: Cad
     const head = name === 'STRETCH' ? 'Select objects to stretch by crossing window' : 'Select objects';
     return show(blank(name, 'select'), prompt(head, 'select'));
   }
-  return done([`${name}: not yet available in Civil Design`]);
+  return done([`${name}: that command is not in this build.`]);
 }
 
 function occupy(command: string, ids: string[]): Session {
@@ -440,7 +441,6 @@ function dispatch(session: Session, model: DrawingModel, settings: CadSettings, 
     case 'EXPLODE':
     case 'JOIN':
     case 'LIST':
-    case 'PROPERTIES':
       return modify(session, model, settings, input);
     case 'OFFSET':
       return offset(session, model, settings, input);
@@ -1355,6 +1355,14 @@ function realtimeNav(session: Session, input: SessionInput): SessionResult {
   return show(session, again);
 }
 
+const ZOOM_KEYS = ['Extents', 'Window', 'Dynamic', 'Scale', 'Center', 'Previous', 'All'];
+
+function zoomFactor(input: SessionInput): number | null {
+  if (input.kind === 'number') return input.value;
+  if (input.kind === 'text' && /^\d*\.?\d+x$/i.test(input.text.trim())) return Number.parseFloat(input.text);
+  return null;
+}
+
 function zoom(session: Session, input: SessionInput): SessionResult {
   if (session.phase === 'realtime') return realtimeNav(session, input);
   if (session.phase === 'window') {
@@ -1364,17 +1372,33 @@ function zoom(session: Session, input: SessionInput): SessionResult {
     if (session.aux === 'menu') return show({ ...session, command: 'PAN', phase: 'realtime', pts: [], aux: '' }, realtimePrompt(), [], [effect]);
     return done([], [effect]);
   }
-  if (kw(input, 'Extents') || kw(input, 'All') || (input.kind === 'empty' && session.phase === 'main')) return done([], [{ type: 'zoom-extents' }]);
-  if (kw(input, 'Previous')) return done([], [{ type: 'zoom-previous' }]);
-  if (kw(input, 'Window')) return show({ ...session, phase: 'window' }, prompt('Specify first corner', 'point'));
-  if (input.kind === 'point') return show({ ...session, phase: 'window', pts: [input.point] }, prompt('Specify opposite corner', 'point'));
-  if (input.kind === 'number') return done([], [{ type: 'zoom-scale', factor: input.value }]);
-  if (input.kind === 'text' && /^\d*\.?\d+x$/i.test(input.text.trim())) {
-    const factor = Number.parseFloat(input.text);
-    if (!(factor > 0)) return fail(session, prompt('Specify corner of window, enter a scale factor, or', 'any', ['Extents', 'Window', 'Previous', 'All'], 'Extents'), 'Scale factor must be positive.');
+  if (session.phase === 'scale') {
+    const factor = input.kind === 'empty' ? 2 : zoomFactor(input);
+    if (factor === null || !(factor > 0)) return fail(session, prompt('Enter a scale factor', 'number', [], '2'), 'Scale factor must be positive.');
     return done([], [{ type: 'zoom-scale', factor }]);
   }
-  return fail(session, prompt('Specify corner of window, enter a scale factor, or', 'any', ['Extents', 'Window', 'Previous', 'All'], 'Extents'), 'Point or option keyword required.');
+  if (session.phase === 'center') {
+    if (input.kind !== 'point') return fail(session, prompt('Specify center point', 'point'), 'Point or option keyword required.');
+    return show({ ...session, phase: 'magnify', pts: [input.point] }, prompt('Enter magnification', 'number', [], '2'));
+  }
+  if (session.phase === 'magnify') {
+    const factor = input.kind === 'empty' ? 2 : zoomFactor(input);
+    if (factor === null || !(factor > 0) || !session.pts[0]) return fail(session, prompt('Enter magnification', 'number', [], '2'), 'Scale factor must be positive.');
+    return done([], [{ type: 'zoom-center', point: session.pts[0], factor }]);
+  }
+  if (kw(input, 'Extents') || kw(input, 'All') || (input.kind === 'empty' && session.phase === 'main')) return done([], [{ type: 'zoom-extents' }]);
+  if (kw(input, 'Previous')) return done([], [{ type: 'zoom-previous' }]);
+  if (kw(input, 'Window') || kw(input, 'Dynamic')) return show({ ...session, phase: 'window' }, prompt('Specify first corner', 'point'));
+  if (kw(input, 'Scale')) return show({ ...session, phase: 'scale' }, prompt('Enter a scale factor', 'number', [], '2'));
+  if (kw(input, 'Center')) return show({ ...session, phase: 'center' }, prompt('Specify center point', 'point'));
+  if (input.kind === 'point') return show({ ...session, phase: 'window', pts: [input.point] }, prompt('Specify opposite corner', 'point'));
+  if (input.kind === 'number') return done([], [{ type: 'zoom-scale', factor: input.value }]);
+  const typed = zoomFactor(input);
+  if (typed !== null) {
+    if (!(typed > 0)) return fail(session, prompt('Specify corner of window, enter a scale factor, or', 'any', ZOOM_KEYS, 'Extents'), 'Scale factor must be positive.');
+    return done([], [{ type: 'zoom-scale', factor: typed }]);
+  }
+  return fail(session, prompt('Specify corner of window, enter a scale factor, or', 'any', ZOOM_KEYS, 'Extents'), 'Point or option keyword required.');
 }
 
 function pan(session: Session, input: SessionInput): SessionResult {

@@ -234,6 +234,18 @@ export function CommandLine({ collapsed = false, heightPx, onHeight }: { collaps
         cancelInput();
         return;
       }
+      if (getWorkspace().locomotion !== 'none') {
+        const move = event.key.toLowerCase();
+        if (
+          move === 'arrowup' || move === 'arrowdown' || move === 'arrowleft' || move === 'arrowright'
+          || move === 'w' || move === 'a' || move === 's' || move === 'd'
+          || move === 'q' || move === 'e'
+          || event.key === 'PageUp' || event.key === 'PageDown'
+        ) {
+          event.preventDefault();
+          return;
+        }
+      }
       if (event.key === 'ArrowUp' || event.key === 'ArrowDown') {
         event.preventDefault();
         browseHistory(event.key === 'ArrowUp' ? 'up' : 'down');
@@ -332,7 +344,7 @@ export function CommandLine({ collapsed = false, heightPx, onHeight }: { collaps
                 }}
               >
                 <span>{item.label}</span>
-                <em>{item.implemented ? item.description : 'not yet available'}</em>
+                <em>{item.description}</em>
               </button>
             </li>
           ))}

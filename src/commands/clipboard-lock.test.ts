@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { DrawingModel, v3 } from '../engine/drafting';
-import { eraseSelection, getCommandSnapshot, getDrawingModel, runCommand, writeDrawingFile } from './runtime';
+import { eraseSelection, getCommandSnapshot, getDrawingModel, runCommand, writeDrawingFile, zoomSelection } from './runtime';
 
 describe('edit menu and locked objects', () => {
   it('skips locked objects for Cut and Delete', () => {
@@ -16,6 +16,22 @@ describe('edit menu and locked objects', () => {
     eraseSelection();
     expect(getDrawingModel().doc.entities.map((entity) => entity.id)).toEqual(['held']);
     expect(getCommandSnapshot().lines.map((line) => line.text).join('\n')).toContain('1 object is locked.');
+    writeDrawingFile(null);
+  });
+
+  it('reports Delete and Zoom Object when nothing is selected', () => {
+    writeDrawingFile(null);
+    eraseSelection();
+    zoomSelection();
+    const text = getCommandSnapshot().lines.map((line) => line.text);
+    expect(text).toContain('No objects selected.');
+    expect(text).toContain('No objects selected. Zoom extents.');
+    const model = new DrawingModel();
+    model.add({ id: 'free', type: 'line', layer: '0', color: 'bylayer', a: v3(0, 0), b: v3(1, 0) });
+    writeDrawingFile(model.toFile());
+    getDrawingModel().doc.selection = ['free'];
+    zoomSelection();
+    expect(getCommandSnapshot().lines.map((line) => line.text)).toContain('Zoom object.');
     writeDrawingFile(null);
   });
 });

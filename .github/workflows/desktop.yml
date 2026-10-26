@@ -118,7 +118,8 @@ jobs:
           tag_name: ${{ github.event_name == 'workflow_dispatch' && format('desktop-{0}', github.sha) || github.ref_name }}
           name: ${{ github.event_name == 'workflow_dispatch' && format('Civil Design desktop {0}', github.sha) || format('Civil Design {0}', github.ref_name) }}
           draft: false
-          prerelease: ${{ github.event_name == 'workflow_dispatch' }}
+          prerelease: ${{ github.event_name == 'workflow_dispatch' || contains(github.ref_name, '-rc') }}
+          make_latest: ${{ (github.event_name == 'workflow_dispatch' || contains(github.ref_name, '-rc')) && 'false' || 'true' }}
           fail_on_unmatched_files: true
           files: release-assets/*
           body: |

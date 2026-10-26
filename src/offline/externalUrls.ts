@@ -10,9 +10,13 @@
  * - http://www.w3.org/2000/xmlns/         xmlns namespace
  * - http://www.w3.org/XML/1998/namespace  xml namespace
  * - http://www.landxml.org/schema/LandXML-1.2   LandXML 1.2 export xmlns
+ *
+ * The ODA File Converter download address is text in a message. The page does not request it.
  */
 import { existsSync, readdirSync, readFileSync, statSync } from 'node:fs';
 import { extname, join, relative } from 'node:path';
+
+export const OPTIONAL_DOWNLOAD_URLS = new Set(['https://www.opendesign.com/guestfiles/oda_file_converter']);
 
 export const NAMESPACE_URLS = new Set([
   'http://www.w3.org/1999/xhtml',
@@ -58,7 +62,7 @@ export function externalResourceUrls(text: string): string[] {
   const found = new Set<string>();
   for (const match of source.matchAll(URL_RE)) {
     const url = cleanUrl(match[0]);
-    if (!NAMESPACE_URLS.has(url)) found.add(url);
+    if (!NAMESPACE_URLS.has(url) && !OPTIONAL_DOWNLOAD_URLS.has(url)) found.add(url);
   }
   for (const match of source.matchAll(PROTOCOL_RELATIVE_RE)) {
     found.add(match[0].trim());

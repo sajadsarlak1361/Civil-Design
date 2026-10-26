@@ -2,7 +2,7 @@ import { describe, expect, it } from 'vitest';
 import { DrawingModel, emptyDrawing, type DrawLine, type DrawPolyline } from './drafting';
 import { lockMessage, polylineWidthArea, setLockedIds, syncObjects } from './objects';
 import { beginCommand, defaultSettings } from '../commands/session';
-import { commonValue, fieldsFor, listText, patternRuns, readProp, selectByQuery, writeProp, VARIES } from './properties';
+import { commonValue, fieldsFor, fieldsForSelection, listText, objectTypeName, patternRuns, readProp, selectByQuery, writeProp, VARIES } from './properties';
 
 function line(): DrawLine {
   return { id: 'e1', type: 'line', layer: '0', color: 'bylayer', a: { x: 0, y: 0, z: 1 }, b: { x: 10, y: 0, z: 1 } };
@@ -28,6 +28,8 @@ describe('properties', () => {
   it('reads and writes line geometry and ByLayer color', () => {
     const doc = emptyDrawing();
     doc.entities.push(line());
+    expect(fieldsFor(doc.entities[0]).some((field) => field.key === 'type')).toBe(true);
+    expect(readProp(doc, 'e1', 'type')).toBe('Line');
     expect(fieldsFor(doc.entities[0]).some((field) => field.key === 'startX')).toBe(true);
     expect(fieldsFor(doc.entities[0]).some((field) => field.label === 'Material')).toBe(false);
     expect(readProp(doc, 'e1', 'length')).toBe('10.000');
@@ -100,5 +102,35 @@ describe('properties', () => {
     expect(writeProp(model.doc, 'surface:s1', 'layer', '0')).toMatch(/locked/);
     const found = selectByQuery(model.doc, { kind: 'surface', property: 'locked', operator: '=', value: 'Yes' });
     expect(found).toEqual(['surface:s1']);
+    expect(readProp(model.doc, 'surface:s1', 'type')).toBe('Surface');
+    expect(readProp(model.doc, 'surface:s1', 'name')).toBe('EG');
+  });
+
+  it('keeps shared rows for a mixed selection and geometry for one type', () => {
+    const doc = emptyDrawing();
+    const other = line();
+    other.id = 'e9';
+    other.layer = 'Road';
+    other.a = { x: 1, y: 2, z: 0 };
+    doc.entities.push(line(), other, {
+      id: 'c1',
+      type: 'circle',
+      layer: '0',
+      color: 'bylayer',
+      center: { x: 4, y: 5, z: 0 },
+      radius: 3,
+    });
+    const mixed = fieldsForSelection([doc.entities[0], doc.entities[2]]);
+    expect(mixed.some((field) => field.key === 'type')).toBe(true);
+    expect(mixed.some((field) => field.key === 'layer')).toBe(true);
+    expect(mixed.some((field) => field.key === 'startX')).toBe(false);
+    expect(mixed.some((field) => field.key === 'radius')).toBe(false);
+    expect(commonValue(doc, ['e1', 'c1'], 'type')).toBe(VARIES);
+    const lines = fieldsForSelection([doc.entities[0], doc.entities[1]]);
+    expect(lines.some((field) => field.key === 'startX')).toBe(true);
+    expect(commonValue(doc, ['e1', 'e9'], 'type')).toBe('Line');
+    expect(commonValue(doc, ['e1', 'e9'], 'layer')).toBe(VARIES);
+    expect(objectTypeName(doc.entities[2])).toBe('Circle');
+    expect(fieldsForSelection([])).toEqual([]);
   });
 });

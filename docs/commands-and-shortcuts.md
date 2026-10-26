@@ -1,6 +1,6 @@
 # Commands and shortcuts
 
-A command in the tables below runs. Any other name from `src/commands/classic.pgp` is recognized and answers `not yet available in Civil Design`. An unknown name answers `Unknown command`.
+A command in the tables below runs. Any other name from `src/commands/classic.pgp` is recognized and answers `that command is not in this build`. An unknown name answers `Unknown command`.
 
 Resolution order is in `resolveToken`: a user alias from `ALIASEDIT`, then a design command name, then `classic.pgp`, then the Civil Design aliases `ZE`, `?`, and `MREDO`.
 
@@ -75,7 +75,7 @@ Menu labels that look like shortcuts and are typed aliases, not keys: Redraw is 
 | `DIST` | Measure a distance |
 | `ID` | Report a coordinate |
 | `AREA` | Report an area |
-| `PROPERTIES` | Open the Properties palette |
+| `PROPERTIES` | Open or close the Properties palette. `PR`, `CH`, `MO`, and `PROPS` do the same |
 | `PROPERTIESCLOSE` | Close the Properties palette |
 | `QSELECT` | Quick select objects by property |
 | `QUICKPROPERTIES` | Toggle the Quick Properties hover panel |
@@ -516,14 +516,15 @@ Pipe networks and survey are implemented in `src/engine` and retired by `src/fea
 | `TRAVERSEEDITOR` | Retired while its feature flag is false. |
 | `TRAVERSE` | Retired while its feature flag is false. |
 
-These design command names are listed in `CIVIL_COMMANDS` and are not in the implemented set. Typing one answers `not yet available in Civil Design`.
+`CREATESURFACECOMPOSITE` builds a TIN whose elevation is comparison minus base (or the datum) and stores the cut and fill totals.
+
+These design command names are listed in `CIVIL_COMMANDS` and are not in the implemented set. Typing one answers `that command is not in this build`.
 
 | Command |
 | --- |
 | `ADDSURFACECONTOURS` |
 | `ADDSURFACEPOINT` |
 | `ADDSURFACELINE` |
-| `CREATESURFACECOMPOSITE` |
 | `EDITSURFACEPASTE` |
 | `EDITSURFACESWAPEDGE` |
 | `CREATEALIGNMENTREFERENCE` |

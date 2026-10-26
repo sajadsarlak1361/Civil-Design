@@ -15,7 +15,7 @@ export interface FormatStatus {
 export const FORMAT_CATALOG: FormatStatus[] = [
   { id: 'fieldline', label: 'Civil Design project', extensions: '.fieldline .fieldline.json', read: 'yes', write: 'yes', note: 'JSON project, version 1, including drawing and xrefs.' },
   { id: 'dxf', label: 'DXF', extensions: '.dxf', read: 'yes', write: 'yes', note: 'ASCII and binary DXF. POINT, LINE, LWPOLYLINE, CIRCLE, ARC, TEXT, 3DFACE.' },
-  { id: 'dwg', label: 'DWG / DWT', extensions: '.dwg .dwt', read: 'yes', write: 'partial', note: DWG_VERDICT.reason },
+  { id: 'dwg', label: 'DWG / DWT', extensions: '.dwg .dwt', read: 'yes', write: 'yes', note: DWG_VERDICT.reason },
   { id: 'landxml', label: 'LandXML', extensions: '.xml .landxml', read: 'yes', write: 'yes', note: 'Surfaces, CgPoints, alignments, and profiles.' },
   { id: 'points', label: 'Point file', extensions: '.csv .txt .xyz', read: 'yes', write: 'yes', note: 'PNEZD, PENZD, PNEZ, PENZ, NEZ, ENZ, and XYZ.' },
   { id: 'dem', label: 'ASCII DEM', extensions: '.asc', read: 'yes', write: 'yes', note: 'ESRI ASCII grid and an XYZ grid of cell centers.' },

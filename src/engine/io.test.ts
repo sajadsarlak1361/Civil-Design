@@ -2,7 +2,7 @@ import { describe, expect, it } from 'vitest';
 import { contoursToDxf, trianglesToDxf } from './dxf';
 import { generateContours } from './contours';
 import { parseLandXml, surfaceToLandXml } from './landxml';
-import { parsePointFile } from './points';
+import { parsePointFile, pointFormatColumns, pointsToText } from './points';
 import { parseProject, serializeProject, volumeReportCsv } from './project';
 import { defaultSurfaceStyle } from './types';
 import { buildTin } from './tin';
@@ -21,6 +21,26 @@ describe('point file import', () => {
 
     const enz = parsePointFile('2000,5000,77\n', { format: 'ENZ' });
     expect(enz.points[0]).toMatchObject({ x: 2000, y: 5000, z: 77 });
+
+    const xyz = parsePointFile('2000 5000 77\n', { format: 'XYZ', delimiter: 'whitespace' });
+    expect(xyz.format).toBe('XYZ');
+    expect(xyz.points[0]).toMatchObject({ x: 2000, y: 5000, z: 77 });
+    expect(parsePointFile(pointsToText(xyz.points, 'XYZ', ' '), { format: 'XYZ' }).points[0]).toMatchObject({ x: 2000, y: 5000, z: 77 });
+  });
+
+  it('maps preview columns to the selected format', () => {
+    expect(pointFormatColumns('PNEZD').map((column) => column.label)).toEqual(['Point', 'Y Northing', 'X Easting', 'Z Elevation', 'Description']);
+    expect(pointFormatColumns('PENZD').map((column) => column.label)).toEqual(['Point', 'X Easting', 'Y Northing', 'Z Elevation', 'Description']);
+    expect(pointFormatColumns('PNEZ').map((column) => column.key)).toEqual(['point', 'y', 'x', 'z']);
+    expect(pointFormatColumns('PENZ').map((column) => column.key)).toEqual(['point', 'x', 'y', 'z']);
+    expect(pointFormatColumns('NEZ').map((column) => column.key)).toEqual(['y', 'x', 'z']);
+    expect(pointFormatColumns('ENZ').map((column) => column.key)).toEqual(['x', 'y', 'z']);
+    expect(pointFormatColumns('XYZ').map((column) => column.label)).toEqual(['X', 'Y', 'Z']);
+    const row = '1,5000,2000,100.5,EP\n';
+    const pnezd = parsePointFile(row, { format: 'PNEZD' }).points[0];
+    const penzd = parsePointFile(row, { format: 'PENZD' }).points[0];
+    expect(pnezd).toMatchObject({ y: 5000, x: 2000 });
+    expect(penzd).toMatchObject({ x: 5000, y: 2000 });
   });
 
   it('skips comments and a text header', () => {

@@ -34,7 +34,7 @@ export function ViewportStage() {
     const host = hostRef.current;
     const canvas = canvasRef.current;
     if (!host || !canvas) return;
-    const renderer = new THREE.WebGLRenderer({ canvas, antialias: true });
+    const renderer = new THREE.WebGLRenderer({ canvas, antialias: true, preserveDrawingBuffer: true });
     renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, 2));
     renderer.setClearColor('#0b0d11');
     renderer.setScissorTest(true);

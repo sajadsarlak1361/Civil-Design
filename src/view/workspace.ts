@@ -54,6 +54,8 @@ export interface WorkspaceState {
   namedViews: NamedView[];
   visualStyle: VisualStyle;
   orbitMode: OrbitMode;
+  /** Arrow keys move the 3D camera. Walk stays level; fly follows the look direction. */
+  locomotion: 'none' | 'walk' | 'fly';
   viewCube: boolean;
   navBar: boolean;
   cleanScreen: boolean;
@@ -175,8 +177,9 @@ function fresh(): WorkspaceState {
     namedViews: [],
     visualStyle: 'shaded',
     orbitMode: 'constrained',
+    locomotion: 'none',
     viewCube: true,
-    navBar: false,
+    navBar: true,
     cleanScreen: false,
     commandLine: true,
     ucsIcon: true,
@@ -282,6 +285,11 @@ export function setVisualStyle(style: VisualStyle): void {
 
 export function setOrbitMode(mode: OrbitMode): void {
   state = { ...state, orbitMode: mode };
+  emit();
+}
+
+export function setLocomotion(locomotion: WorkspaceState['locomotion']): void {
+  state = { ...state, locomotion };
   emit();
 }
 

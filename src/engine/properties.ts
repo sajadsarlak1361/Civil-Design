@@ -39,7 +39,26 @@ const GENERAL: PropField[] = [
   { category: 'general', key: 'locked', label: 'Locked', kind: 'yesno' },
 ];
 
+const TYPE_FIELD: PropField = { category: 'general', key: 'type', label: 'Type', kind: 'readonly' };
+const NAME_FIELD: PropField = { category: 'general', key: 'name', label: 'Name', kind: 'readonly' };
 const MATERIAL: PropField = { category: 'general', key: 'material', label: 'Material', kind: 'text' };
+
+export function objectTypeName(target: DrawEntity | ModelObject): string {
+  if (!('type' in target)) {
+    return target.kind.split('-').map((part) => (part ? part.charAt(0).toUpperCase() + part.slice(1) : part)).join(' ');
+  }
+  if (target.type === 'polyline') return target.poly3d ? '3D polyline' : 'Polyline';
+  if (target.type === 'block') return target.xref ? 'Xref' : 'Block';
+  const names: Record<string, string> = {
+    line: 'Line',
+    circle: 'Circle',
+    arc: 'Arc',
+    text: 'Text',
+    point: 'Point',
+    dimension: 'Dimension',
+  };
+  return names[target.type] ?? target.type;
+}
 
 function withMaterial(fields: PropField[], show: boolean): PropField[] {
   if (!show) return fields;
@@ -50,7 +69,25 @@ function withMaterial(fields: PropField[], show: boolean): PropField[] {
 }
 
 export function fieldsFor(target: DrawEntity | ModelObject, options: { vertex?: number } = {}): PropField[] {
-  if (!('type' in target)) return withMaterial([...GENERAL], false);
+  const fields = fieldsOf(target, options);
+  return fields.some((field) => field.key === 'type') ? fields : [TYPE_FIELD, ...fields];
+}
+
+/** Properties shared by every target. One type keeps its geometry; a mix keeps the common rows. */
+export function fieldsForSelection(targets: (DrawEntity | ModelObject)[]): PropField[] {
+  if (targets.length === 0) return [];
+  const lists = targets.map((target) => fieldsFor(target));
+  const first = lists[0];
+  const shared = new Map(first.map((field) => [field.key, field]));
+  for (const list of lists.slice(1)) {
+    const keys = new Set(list.map((field) => field.key));
+    for (const key of shared.keys()) if (!keys.has(key)) shared.delete(key);
+  }
+  return first.filter((field) => shared.has(field.key));
+}
+
+function fieldsOf(target: DrawEntity | ModelObject, options: { vertex?: number } = {}): PropField[] {
+  if (!('type' in target)) return [NAME_FIELD, ...withMaterial([...GENERAL], false)];
   const entity = target;
   const material = entity.type === 'polyline' && Boolean(entity.poly3d);
   const general = withMaterial(GENERAL, material || (entity.thickness ?? 0) > 0);
@@ -173,6 +210,8 @@ export function targetOf(doc: DrawingDoc, id: string): DrawEntity | ModelObject 
 export function readProp(doc: DrawingDoc, id: string, key: string, vertex = 0, units: LwUnits = 'mm'): string {
   const target = targetOf(doc, id);
   if (!target) return '';
+  if (key === 'type') return objectTypeName(target);
+  if (key === 'name' && !('type' in target)) return target.name;
   if (!('type' in target)) return readCommon(target, key, units);
   return readEntity(target, key, vertex, units);
 }

@@ -1,5 +1,6 @@
-import type { DrawEntity, Vec3 } from '../drafting';
+import type { BulkGeometry, DrawEntity, Vec3 } from '../drafting';
 import type { LinearUnit } from '../types';
+import { createDxfStream, DXF_BULK_BYTES } from './dxfStream';
 
 export interface DxfFace {
   a: Vec3;
@@ -23,6 +24,8 @@ export interface DxfModel {
   faces: DxfFace[];
   layers: string[];
   layerRecords?: DxfLayerInfo[];
+  /** Compact geometry for a large ASCII DXF. Absent on ordinary drawings. */
+  bulk?: BulkGeometry;
 }
 
 const ACI: Record<number, string> = {
@@ -57,7 +60,18 @@ function aciOf(color: string): number | null {
 export function drawingToDxf(model: DxfModel, unit: LinearUnit = 'm'): string {
   const layers = [...new Set(['0', ...model.layers, ...model.entities.map((entity) => entity.layer)])];
   const records = new Map((model.layerRecords ?? []).map((layer) => [layer.name.toLowerCase(), layer]));
-  let body = pair(0, 'SECTION') + pair(2, 'HEADER') + pair(9, '$INSUNITS') + pair(70, unit === 'ft' ? 2 : 6) + pair(0, 'ENDSEC');
+  let body =
+    pair(0, 'SECTION') +
+    pair(2, 'HEADER') +
+    pair(9, '$ACADVER') +
+    pair(1, 'AC1015') +
+    pair(9, '$INSUNITS') +
+    pair(70, unit === 'ft' ? 2 : 6) +
+    pair(9, '$LTSCALE') +
+    pair(40, 1) +
+    pair(9, '$CLAYER') +
+    pair(8, '0') +
+    pair(0, 'ENDSEC');
   body += pair(0, 'SECTION') + pair(2, 'TABLES') + pair(0, 'TABLE') + pair(2, 'LAYER') + pair(70, layers.length);
   for (const layer of layers) {
     const record = records.get(layer.toLowerCase());
@@ -396,10 +410,16 @@ export function modelFromGroups(groups: Group[]): DxfModel {
   return { entities, faces, layers: [...layers], layerRecords };
 }
 
-export function parseDxf(input: string | Uint8Array): DxfModel {
+export function parseDxf(input: string | Uint8Array, options?: { bulkBytes?: number; maxSegments?: number }): DxfModel {
   if (typeof input !== 'string') {
     const head = new TextDecoder().decode(input.subarray(0, 22));
     if (head.startsWith('AutoCAD Binary DXF')) return modelFromGroups(binaryGroups(input));
+    const bulkBytes = options?.bulkBytes ?? DXF_BULK_BYTES;
+    if (input.byteLength >= bulkBytes) {
+      const stream = createDxfStream(input.byteLength, options?.maxSegments);
+      stream.push(input);
+      return stream.finish();
+    }
     return modelFromGroups(asciiGroups(new TextDecoder().decode(input)));
   }
   return modelFromGroups(asciiGroups(input));

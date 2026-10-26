@@ -25,6 +25,20 @@ export function wheelNotches(deltaY: number): number {
   return sign * notches;
 }
 
+/**
+ * Wheel distance in the same units as a pixel delta.
+ * Some desktop webviews report `wheelDelta` and leave `deltaY` at 0.
+ * Positive means zoom out.
+ */
+export function wheelDeltaY(event: { deltaY: number; deltaMode?: number; wheelDelta?: number }): number {
+  let delta = event.deltaY;
+  if (!delta && event.wheelDelta) delta = -event.wheelDelta;
+  if (!delta) return 0;
+  if (event.deltaMode === 1) return Math.sign(delta) * Math.max(40, Math.abs(delta) * 40);
+  if (event.deltaMode === 2) return Math.sign(delta) * Math.max(40, Math.abs(delta) * 100);
+  return delta;
+}
+
 /** One wheel notch scales by `1 + ZOOMFACTOR/100`. Positive deltaY zooms out. */
 export function wheelZoomRatio(deltaY: number, zoomFactor = DEFAULT_ZOOM_FACTOR): number {
   const notches = wheelNotches(deltaY);

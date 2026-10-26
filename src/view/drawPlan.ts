@@ -30,6 +30,7 @@ import {
   entityPath,
   gripPoints,
   layerOf,
+  type BulkGeometry,
   type DrawingDoc,
   type DrawPolyline,
   type SnapHit,
@@ -143,7 +144,7 @@ export function drawPlan(
   }
   if (scene.preview.length > 0) drawCenterline(ctx, scene.preview, camera, '#ffe3a3');
   if (scene.overlay) drawOverlayWorld(ctx, scene.overlay, camera);
-  if (scene.drawing) drawEntities(ctx, scene.drawing, camera, scene);
+  if (scene.drawing) drawEntities(ctx, scene.drawing, camera, scene, cssWidth, cssHeight);
   drawFigs(ctx, scene.figs ?? [], camera);
   drawTracks(ctx, scene.tracks ?? [], camera);
 
@@ -184,7 +185,7 @@ function painted(scene: PlanScene, key: string, fallback: string): string {
   return paint.color;
 }
 
-function drawEntities(ctx: CanvasRenderingContext2D, doc: DrawingDoc, camera: PlanCamera, scene: PlanScene): void {
+function drawEntities(ctx: CanvasRenderingContext2D, doc: DrawingDoc, camera: PlanCamera, scene: PlanScene, cssWidth: number, cssHeight: number): void {
   const selected = new Set(doc.selection);
   const fade = 1 - Math.min(90, Math.max(0, scene.lockFade ?? 50)) / 100;
   for (const entity of doc.entities) {
@@ -239,9 +240,63 @@ function drawEntities(ctx: CanvasRenderingContext2D, doc: DrawingDoc, camera: Pl
     }
     ctx.restore();
   }
+  if (doc.bulk && (doc.bulk.segmentCount > 0 || doc.bulk.pointCount > 0)) drawBulk(ctx, doc.bulk, camera, cssWidth, cssHeight);
   ctx.setLineDash([]);
   ctx.globalAlpha = 1;
   drawGroupBoxes(ctx, doc, camera);
+}
+
+const BULK_BUDGET = 200_000;
+
+function drawBulk(ctx: CanvasRenderingContext2D, bulk: BulkGeometry, camera: PlanCamera, cssWidth: number, cssHeight: number): void {
+  const halfW = cssWidth / 2 / Math.max(camera.scale, 1e-9);
+  const halfH = cssHeight / 2 / Math.max(camera.scale, 1e-9);
+  const minX = camera.cx - halfW;
+  const maxX = camera.cx + halfW;
+  const minY = camera.cy - halfH;
+  const maxY = camera.cy + halfH;
+  const worldW = Math.max(bulk.maxX - bulk.minX, 1e-9);
+  const worldH = Math.max(bulk.maxY - bulk.minY, 1e-9);
+  const hit = Math.min(1, ((maxX - minX) / worldW) * ((maxY - minY) / worldH) * 2);
+  const stride = Math.max(1, Math.ceil((bulk.segmentCount * hit) / BULK_BUDGET));
+  ctx.globalAlpha = 1;
+  ctx.setLineDash([]);
+  ctx.beginPath();
+  const segs = bulk.segments;
+  let drawn = 0;
+  const limit = Math.min(bulk.segmentCount, BULK_BUDGET * stride);
+  for (let index = 0; index < limit && drawn < BULK_BUDGET; index += stride) {
+    const offset = index * 4;
+    const x1 = segs[offset];
+    const y1 = segs[offset + 1];
+    const x2 = segs[offset + 2];
+    const y2 = segs[offset + 3];
+    if (x1 < minX && x2 < minX) continue;
+    if (x1 > maxX && x2 > maxX) continue;
+    if (y1 < minY && y2 < minY) continue;
+    if (y1 > maxY && y2 > maxY) continue;
+    ctx.moveTo(x1, y1);
+    ctx.lineTo(x2, y2);
+    drawn += 1;
+  }
+  ctx.strokeStyle = '#9ecbff';
+  ctx.lineWidth = worldWidth(camera, 1);
+  ctx.stroke();
+  const points = bulk.points;
+  if (bulk.pointCount === 0) return;
+  const pointStride = Math.max(1, Math.ceil(bulk.pointCount / 50_000));
+  const mark = worldWidth(camera, 3);
+  ctx.beginPath();
+  for (let index = 0; index < bulk.pointCount; index += pointStride) {
+    const x = points[index * 2];
+    const y = points[index * 2 + 1];
+    if (x < minX || x > maxX || y < minY || y > maxY) continue;
+    ctx.moveTo(x - mark, y - mark);
+    ctx.lineTo(x + mark, y + mark);
+    ctx.moveTo(x - mark, y + mark);
+    ctx.lineTo(x + mark, y - mark);
+  }
+  ctx.stroke();
 }
 
 function drawPolyline(ctx: CanvasRenderingContext2D, entity: DrawPolyline, camera: PlanCamera, scene: PlanScene): void {

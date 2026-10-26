@@ -18,7 +18,9 @@ export type UiRequest =
   | 'export-gltf'
   | 'export-volume'
   | 'export-dwg'
-  | 'dwg-settings';
+  | 'dwg-settings'
+  | 'links'
+  | 'render';
 
 const listeners = new Set<(request: UiRequest) => void>();
 

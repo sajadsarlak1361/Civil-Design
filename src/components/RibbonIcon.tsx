@@ -1,4 +1,4 @@
-/** Compact stroke icons. Large buttons use 32px; small buttons use 16px. */
+/** Compact stroke icons. Large buttons use 22px; small buttons use 14px. */
 const PATHS: Record<string, string> = {
   LINE: 'M4 18 L20 6',
   PLINE: 'M3 17 L8 8 L14 14 L21 5',
