@@ -284,7 +284,7 @@ function buildTinSimple(input: SurveyPoint[], tol: number): Tin {
   const finite: number[] = [];
   for (let i = 0; i < input.length; i++) {
     const point = input[i];
-    if (!Number.isFinite(point.x) || !Number.isFinite(point.y) || !Number.isFinite(point.z)) continue;
+    if (!point || !Number.isFinite(point.x) || !Number.isFinite(point.y) || !Number.isFinite(point.z)) continue;
     const n = finite.length;
     xyz[n * 3] = point.x;
     xyz[n * 3 + 1] = point.y;
@@ -340,7 +340,7 @@ export function buildTin(input: SurveyPoint[], options: BuildOptions = {}): Tin 
   };
 
   for (const p of input) {
-    if (!Number.isFinite(p.x) || !Number.isFinite(p.y) || !Number.isFinite(p.z)) continue;
+    if (!p || !Number.isFinite(p.x) || !Number.isFinite(p.y) || !Number.isFinite(p.z)) continue;
     add({ ...p, role: p.role ?? 'survey' }, false);
   }
   if (points.length < 3) return { points, triangles: [] };

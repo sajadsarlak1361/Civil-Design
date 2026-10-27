@@ -49,6 +49,7 @@ export class TriangleBvh {
       const a = points[ia];
       const b = points[ib];
       const c = points[ic];
+      if (!a || !b || !c) continue;
       tMinX[i] = Math.min(a.x, b.x, c.x);
       tMinY[i] = Math.min(a.y, b.y, c.y);
       tMaxX[i] = Math.max(a.x, b.x, c.x);

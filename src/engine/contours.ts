@@ -234,7 +234,9 @@ export function generateContours(
   }
   for (let i = 0; i < used.length; i++) {
     if (!used[i]) continue;
-    const z = points[i].z;
+    const point = points[i];
+    if (!point || !Number.isFinite(point.z)) continue;
+    const z = point.z;
     if (z < minZ) minZ = z;
     if (z > maxZ) maxZ = z;
   }
@@ -258,6 +260,7 @@ export function generateContours(
     const a = points[tri[0]];
     const b = points[tri[1]];
     const c = points[tri[2]];
+    if (!a || !b || !c) continue;
     let loZ = a.z;
     let hiZ = a.z;
     if (b.z < loZ) loZ = b.z;

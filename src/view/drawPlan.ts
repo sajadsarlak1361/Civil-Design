@@ -600,7 +600,9 @@ function drawSurfaceFill(ctx: CanvasRenderingContext2D, surface: SurfaceRecord):
       used.add(tri[2]);
     }
     for (const index of used) {
-      const z = surface.points[index].z;
+      const point = surface.points[index];
+      if (!point) continue;
+      const z = point.z;
       if (z < minZ) minZ = z;
       if (z > maxZ) maxZ = z;
     }
@@ -610,6 +612,7 @@ function drawSurfaceFill(ctx: CanvasRenderingContext2D, surface: SurfaceRecord):
     const a = surface.points[ia];
     const b = surface.points[ib];
     const c = surface.points[ic];
+    if (!a || !b || !c) continue;
     if (surface.style.showSlope) {
       const slope = triangleSlope(a, b, c);
       ctx.fillStyle = rgbCss(slopeColor(slope));
@@ -653,6 +656,7 @@ function drawMeshWire(ctx: CanvasRenderingContext2D, surface: SurfaceRecord, cam
     const a = surface.points[ia];
     const b = surface.points[ib];
     const c = surface.points[ic];
+    if (!a || !b || !c) continue;
     ctx.moveTo(a.x, a.y);
     ctx.lineTo(b.x, b.y);
     ctx.lineTo(c.x, c.y);
@@ -671,6 +675,7 @@ function drawEdges(ctx: CanvasRenderingContext2D, surface: SurfaceRecord, camera
     const a = surface.points[ia];
     const b = surface.points[ib];
     const c = surface.points[ic];
+    if (!a || !b || !c) continue;
     ctx.moveTo(a.x, a.y);
     ctx.lineTo(b.x, b.y);
     ctx.lineTo(c.x, c.y);

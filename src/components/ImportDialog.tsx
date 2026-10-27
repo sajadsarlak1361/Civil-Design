@@ -1,5 +1,5 @@
 import { useMemo, useState } from 'react';
-import { looksLikeLandXml, parseLandXml, parsePointFile, pointFormatColumns, type DelimiterChoice, type FormatChoice, type PointColumnKey, type SurveyPoint } from '../engine';
+import { looksLikeLandXml, parseLandXml, parsePointFile, type DelimiterChoice, type FormatChoice, type PointColumnKey, type SurveyPoint } from '../engine';
 import { formatNumber } from '../lib/format';
 
 const FORMATS: FormatChoice[] = ['auto', 'PNEZD', 'PENZD', 'PNEZ', 'PENZ', 'NEZ', 'ENZ', 'XYZ'];
@@ -27,7 +27,7 @@ export function ImportDialog({ filename, text, onClose, onPoints, onLandXml }: I
   const [delimiter, setDelimiter] = useState<DelimiterChoice>('auto');
   const [name, setName] = useState(filename.replace(/\.[^.]+$/, '') || 'Surface');
   const parsed = useMemo(() => (landXml ? null : parsePointFile(text, { format, delimiter })), [delimiter, format, landXml, text]);
-  const columns = useMemo(() => (parsed ? pointFormatColumns(parsed.format) : []), [parsed]);
+  const columns = parsed?.columns ?? [];
 
   const bounds = useMemo(() => {
     if (!parsed || parsed.points.length === 0) return null;
