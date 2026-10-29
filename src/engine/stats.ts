@@ -56,6 +56,7 @@ function computeSurfaceStats(points: SurveyPoint[], triangles: Triangle[]): Surf
     const a = points[ia];
     const b = points[ib];
     const c = points[ic];
+    if (!a || !b || !c) continue;
     const a2 = triangleArea2D(a, b, c);
     const a3 = triangleArea3D(a, b, c);
     area2D += a2;
@@ -72,8 +73,10 @@ function computeSurfaceStats(points: SurveyPoint[], triangles: Triangle[]): Surf
   let pointCount = 0;
   for (let i = 0; i < used.length; i++) {
     if (!used[i]) continue;
+    const point = points[i];
+    if (!point) continue;
     pointCount += 1;
-    const z = points[i].z;
+    const z = point.z;
     if (z < minZ) minZ = z;
     if (z > maxZ) maxZ = z;
   }

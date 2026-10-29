@@ -222,17 +222,20 @@ export interface Bounds {
 }
 
 export function boundsOf(points: Vec2[]): Bounds | null {
-  if (points.length === 0) return null;
   let minX = Infinity;
   let minY = Infinity;
   let maxX = -Infinity;
   let maxY = -Infinity;
+  let count = 0;
   for (const p of points) {
+    if (!p || !Number.isFinite(p.x) || !Number.isFinite(p.y)) continue;
     if (p.x < minX) minX = p.x;
     if (p.y < minY) minY = p.y;
     if (p.x > maxX) maxX = p.x;
     if (p.y > maxY) maxY = p.y;
+    count += 1;
   }
+  if (count === 0) return null;
   return { minX, minY, maxX, maxY };
 }
 

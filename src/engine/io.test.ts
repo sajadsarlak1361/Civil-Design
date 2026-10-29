@@ -43,13 +43,49 @@ describe('point file import', () => {
     expect(penzd).toMatchObject({ x: 5000, y: 2000 });
   });
 
-  it('skips comments and a text header', () => {
+  it('skips comments and reads a named northing/easting header', () => {
     const text = '# sample\nPoint,Northing,Easting,Elevation,Description\n1,10,20,30,SAMPLE\n';
     const parsed = parsePointFile(text);
     expect(parsed.format).toBe('PNEZD');
     expect(parsed.points).toHaveLength(1);
-    expect(parsed.points[0].description).toBe('SAMPLE');
-    expect(parsed.skipped.length).toBeGreaterThan(0);
+    expect(parsed.points[0]).toMatchObject({ number: '1', y: 10, x: 20, z: 30, description: 'SAMPLE' });
+    expect(parsed.skipped).toEqual([]);
+  });
+
+  it('maps PointNumber,X,Y,Elevation and number,X,Y,Z into finite points that triangulate', () => {
+    const csv = [
+      'PointNumber,X,Y,Elevation,Description',
+      '1,2000,5000,99.25,EP',
+      '2,2100,5000,100,TOE',
+      '3,2100,5100,101.5,TOP',
+      '4,2000,5100,98.75,GS',
+    ].join('\n');
+    const parsed = parsePointFile(csv);
+    expect(parsed.delimiter).toBe('comma');
+    expect(parsed.format).toBe('PENZD');
+    expect(parsed.columns.map((column) => column.key)).toEqual(['point', 'x', 'y', 'z', 'description']);
+    expect(parsed.skipped).toEqual([]);
+    expect(parsed.points).toHaveLength(4);
+    expect(parsed.points[0]).toMatchObject({ number: '1', x: 2000, y: 5000, z: 99.25, description: 'EP' });
+    expect(parsed.points.every((point) => Number.isFinite(point.x) && Number.isFinite(point.y) && Number.isFinite(point.z))).toBe(true);
+
+    const txt = ['number X Y Z desc', '10 2000 5000 99.25 EP', '11 2100 5000 100 GS', '12 2100 5100 101 GS', '13 2000 5100 98 GS'].join('\n');
+    const textParsed = parsePointFile(txt);
+    expect(textParsed.delimiter).toBe('whitespace');
+    expect(textParsed.format).toBe('PENZD');
+    expect(textParsed.points[0]).toMatchObject({ number: '10', x: 2000, y: 5000, z: 99.25, description: 'EP' });
+    expect(textParsed.points).toHaveLength(4);
+
+    for (const points of [parsed.points, textParsed.points]) {
+      const tin = buildTin(points);
+      expect(tin.points.length).toBe(4);
+      expect(tin.triangles.length).toBeGreaterThan(0);
+      for (const [ia, ib, ic] of tin.triangles) {
+        expect(tin.points[ia]).toEqual(expect.objectContaining({ x: expect.any(Number), y: expect.any(Number), z: expect.any(Number) }));
+        expect(tin.points[ib]).toEqual(expect.objectContaining({ x: expect.any(Number), y: expect.any(Number) }));
+        expect(tin.points[ic]).toEqual(expect.objectContaining({ x: expect.any(Number), y: expect.any(Number) }));
+      }
+    }
   });
 });
 
