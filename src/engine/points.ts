@@ -22,6 +22,8 @@ export interface PointParseResult {
   skipped: SkippedLine[];
   delimiter: 'comma' | 'whitespace' | 'tab';
   format: PointFormat;
+  /** Column order used to build each point. X is easting, Y is northing, Z is elevation. */
+  columns: PointColumn[];
 }
 
 const FORMATS: PointFormat[] = ['PNEZD', 'PENZD', 'PNEZ', 'PENZ', 'NEZ', 'ENZ', 'XYZ'];
@@ -117,11 +119,6 @@ function numeric(value: string): number | null {
   return Number.isFinite(n) ? n : null;
 }
 
-function fieldCount(format: PointFormat): number {
-  if (format === 'NEZ' || format === 'ENZ' || format === 'XYZ') return 3;
-  return 4;
-}
-
 export function detectFormat(rows: string[][]): PointFormat {
   const row = rows.find((fields) => fields.filter((field) => numeric(field) !== null).length >= 3);
   const n = row?.length ?? 0;
@@ -130,49 +127,109 @@ export function detectFormat(rows: string[][]): PointFormat {
   return 'NEZ';
 }
 
-function parseRow(fields: string[], format: PointFormat): SurveyPoint | null {
-  const need = fieldCount(format);
-  if (fields.length < need) return null;
-  let number: string | undefined;
-  let northing: number | null;
-  let easting: number | null;
-  let elevation: number | null;
-  let descStart = need;
+function canonicalHeader(value: string): string {
+  return value.toLowerCase().replace(/[^a-z0-9]+/g, '');
+}
 
-  switch (format) {
-    case 'PNEZD':
-    case 'PNEZ':
-      number = fields[0];
-      northing = numeric(fields[1]);
-      easting = numeric(fields[2]);
-      elevation = numeric(fields[3]);
-      descStart = 4;
-      break;
-    case 'PENZD':
-    case 'PENZ':
-      number = fields[0];
-      easting = numeric(fields[1]);
-      northing = numeric(fields[2]);
-      elevation = numeric(fields[3]);
-      descStart = 4;
-      break;
-    case 'NEZ':
-      northing = numeric(fields[0]);
-      easting = numeric(fields[1]);
-      elevation = numeric(fields[2]);
-      descStart = 3;
-      break;
-    case 'ENZ':
-    case 'XYZ':
-      easting = numeric(fields[0]);
-      northing = numeric(fields[1]);
-      elevation = numeric(fields[2]);
-      descStart = 3;
-      break;
+const HEADER_TO_KEY: Record<string, PointColumnKey> = {
+  point: 'point',
+  pointnumber: 'point',
+  pointno: 'point',
+  pointnum: 'point',
+  number: 'point',
+  num: 'point',
+  pt: 'point',
+  p: 'point',
+  name: 'point',
+  id: 'point',
+  x: 'x',
+  easting: 'x',
+  east: 'x',
+  e: 'x',
+  y: 'y',
+  northing: 'y',
+  north: 'y',
+  n: 'y',
+  z: 'z',
+  elevation: 'z',
+  elev: 'z',
+  el: 'z',
+  height: 'z',
+  description: 'description',
+  desc: 'description',
+  code: 'description',
+  d: 'description',
+  note: 'description',
+};
+
+/** Named survey columns such as PointNumber,X,Y,Elevation,Description. Null when the row is data. */
+function columnsFromHeader(fields: string[]): PointColumn[] | null {
+  if (fields.length < 3) return null;
+  if (fields.filter((field) => numeric(field) !== null).length >= 3) return null;
+  const keys: PointColumnKey[] = [];
+  for (const field of fields) {
+    const key = HEADER_TO_KEY[canonicalHeader(field)];
+    if (!key) return null;
+    keys.push(key);
   }
-  if (northing === null || easting === null || elevation === null) return null;
-  const description = fields.slice(descStart).join(' ').trim();
+  if (!keys.includes('x') || !keys.includes('y') || !keys.includes('z')) return null;
+  if (new Set(keys).size !== keys.length) return null;
+  return keys.map((key) => {
+    if (key === 'point') return POINT_COL;
+    if (key === 'description') return DESC_COL;
+    if (key === 'x') return X_COL;
+    if (key === 'y') return Y_COL;
+    return Z_COL;
+  });
+}
+
+function formatMatching(fields: string[], columns: PointColumn[]): PointFormat | null {
+  const signature = columns.map((column) => column.key).join(',');
+  const matches = FORMATS.filter((format) => pointFormatColumns(format).map((column) => column.key).join(',') === signature);
+  if (matches.length === 0) return null;
+  if (matches.includes('XYZ') && matches.includes('ENZ')) {
+    const tokens = fields.map(canonicalHeader);
+    return tokens.every((token) => token === 'x' || token === 'y' || token === 'z') ? 'XYZ' : 'ENZ';
+  }
+  return matches[0];
+}
+
+function resolveColumns(rows: string[][], format: FormatChoice): { format: PointFormat; columns: PointColumn[] } {
+  if (format !== 'auto') return { format, columns: pointFormatColumns(format) };
+  const headerFields = rows[0];
+  const header = headerFields ? columnsFromHeader(headerFields) : null;
+  if (header) {
+    const matched = formatMatching(headerFields, header);
+    if (matched) return { format: matched, columns: pointFormatColumns(matched) };
+    return { format: 'PENZD', columns: header };
+  }
+  const detected = detectFormat(rows);
+  return { format: detected, columns: pointFormatColumns(detected) };
+}
+
+/**
+ * Build one survey point from a row.
+ * Every returned point has finite easting (x), northing (y), and elevation (z).
+ * A missing axis is rejected so triangulation never reads undefined.x.
+ */
+function pointFromColumns(fields: string[], columns: PointColumn[]): SurveyPoint | null {
+  const required = columns.filter((column) => column.key !== 'description').length;
+  if (fields.length < required) return null;
+  const values = new Map<PointColumnKey, string>();
+  columns.forEach((column, index) => {
+    if (index < fields.length) values.set(column.key, fields[index]);
+  });
+  const easting = numeric(values.get('x') ?? '');
+  const northing = numeric(values.get('y') ?? '');
+  const elevation = numeric(values.get('z') ?? '');
+  if (easting === null || northing === null || elevation === null) return null;
+  let description = '';
+  const descriptionIndex = columns.findIndex((column) => column.key === 'description');
+  if (descriptionIndex >= 0) description = fields.slice(descriptionIndex).join(' ');
+  else if (fields.length > columns.length) description = fields.slice(columns.length).join(' ');
+  description = description.trim();
   const point: SurveyPoint = { x: easting, y: northing, z: elevation, role: 'survey' };
+  const number = values.get('point')?.trim();
   if (number) point.number = number;
   if (description) point.description = description;
   return point;
@@ -207,6 +264,7 @@ function scanPointFile(
   source: string,
   delimiter: 'comma' | 'whitespace' | 'tab',
   format: PointFormat,
+  columns: PointColumn[],
 ): PointParseResult {
   const points: SurveyPoint[] = [];
   const skipped: SkippedLine[] = [];
@@ -245,13 +303,15 @@ function scanPointFile(
       }
       if (fields.length > 1 && fields[fields.length - 1] === '' && source.slice(start, stop).trimEnd().endsWith(sep === 44 ? ',' : '\t')) fields.pop();
     }
-    const point = parseRow(fields, format);
+    const point = pointFromColumns(fields, columns);
     if (!point) {
-      skipped.push({ line: lineNo, text: source.slice(start, stop).trim(), reason: 'Could not read coordinates with the selected format' });
+      if (!columnsFromHeader(fields)) {
+        skipped.push({ line: lineNo, text: source.slice(start, stop).trim(), reason: 'Could not read coordinates with the selected format' });
+      }
     } else points.push(point);
     lineNo += 1;
   }
-  return { points, skipped, delimiter, format };
+  return { points, skipped, delimiter, format, columns };
 }
 
 export function parsePointFile(
@@ -262,9 +322,10 @@ export function parsePointFile(
   if (source.charCodeAt(0) === 0xfeff) source = source.slice(1);
   const delimiter =
     !options.delimiter || options.delimiter === 'auto' ? detectDelimiter(source) : options.delimiter;
+  const explicit = options.format ?? 'auto';
   if (!source.includes('"')) {
-    const format = !options.format || options.format === 'auto' ? detectFormat(prefixRows(source, delimiter)) : options.format;
-    return scanPointFile(source, delimiter, format);
+    const resolved = resolveColumns(prefixRows(source, delimiter), explicit);
+    return scanPointFile(source, delimiter, resolved.format, resolved.columns);
   }
   const rawLines = source.split(/\r?\n/);
   const rows: { line: number; fields: string[] }[] = [];
@@ -273,22 +334,24 @@ export function parsePointFile(
     if (!trimmed || isComment(trimmed)) continue;
     rows.push({ line: i + 1, fields: splitLine(trimmed, delimiter) });
   }
-  const format = !options.format || options.format === 'auto' ? detectFormat(rows.map((row) => row.fields)) : options.format;
+  const resolved = resolveColumns(rows.map((row) => row.fields), explicit);
   const points: SurveyPoint[] = [];
   const skipped: SkippedLine[] = [];
   for (const row of rows) {
-    const point = parseRow(row.fields, format);
+    const point = pointFromColumns(row.fields, resolved.columns);
     if (!point) {
-      skipped.push({
-        line: row.line,
-        text: rawLines[row.line - 1].trim(),
-        reason: 'Could not read coordinates with the selected format',
-      });
+      if (!columnsFromHeader(row.fields)) {
+        skipped.push({
+          line: row.line,
+          text: rawLines[row.line - 1].trim(),
+          reason: 'Could not read coordinates with the selected format',
+        });
+      }
       continue;
     }
     points.push(point);
   }
-  return { points, skipped, delimiter, format };
+  return { points, skipped, delimiter, format: resolved.format, columns: resolved.columns };
 }
 
 /** Write points in the same column order `parsePointFile` reads. */

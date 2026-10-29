@@ -195,7 +195,13 @@ export async function parsePointsOffThread(
     for (let i = 0; i < part.points.length; i++) points.push(part.points[i]);
     skipped += part.skipped;
   }
-  return { points, skipped: skipped ? [{ line: 0, text: '', reason: `${skipped} lines skipped` }] : [], delimiter: probe.delimiter, format: probe.format };
+  return {
+    points,
+    skipped: skipped ? [{ line: 0, text: '', reason: `${skipped} lines skipped` }] : [],
+    delimiter: probe.delimiter,
+    format: probe.format,
+    columns: probe.columns,
+  };
 }
 
 export async function contoursOffThread(
