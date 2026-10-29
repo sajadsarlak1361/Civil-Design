@@ -1,6 +1,6 @@
 /** User-facing product name. Project files, storage keys, and clipboard kinds stay fieldline. */
 export const APP_NAME = 'Civil Design';
-export const APP_VERSION = '0.2.0';
+export const APP_VERSION = '0.2.3';
 export const APP_TITLE = `${APP_NAME} — terrain surfaces`;
 
 /** Copyright in Sajad Sarlak's code and branding. Builds that include LibreDWG stay under GPL-3.0. */

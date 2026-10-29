@@ -48,12 +48,12 @@ cargo tauri build
 
 `tauri.conf.json` has no separate installer file-name field in this Tauri version, so `productName` is `Civil-Design` (with the hyphen). The window title is Civil Design. The bundle id is `com.civildesign.app`. The installed program name is `civil-design`.
 
-A 0.2.0 build produces:
+A 0.2.3 build produces:
 
 | Platform | Files |
 | --- | --- |
-| Windows x64 | `Civil-Design_0.2.0_x64-setup.exe`, `Civil-Design_0.2.0_x64_en-US.msi` |
-| Linux x64 | `Civil-Design_0.2.0_amd64.deb`, `Civil-Design_0.2.0_amd64.AppImage` |
+| Windows x64 | `Civil-Design_0.2.3_x64-setup.exe`, `Civil-Design_0.2.3_x64_en-US.msi` |
+| Linux x64 | `Civil-Design_0.2.3_amd64.deb`, `Civil-Design_0.2.3_amd64.AppImage` |
 
 Windows uses NSIS per-user install and `webviewInstallMode: offlineInstaller`. That offline installer is inside both the MSI and the setup executable, which is why each Windows file is about 210 MB. The Actions artifact that holds both files is about 438 MB. The release uploads the MSI and the setup executable as two assets.
 
