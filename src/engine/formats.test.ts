@@ -2,7 +2,7 @@ import { readFileSync } from 'node:fs';
 import { resolve } from 'node:path';
 import { describe, expect, it } from 'vitest';
 import { drawingToDxf, parseDxf, binaryLineDxf } from './formats/dxfDoc';
-import { dwgAvailable, DWG_VERDICT } from './formats/dwg';
+import { BINARY_DRAWING_NOTE } from './formats/ingest';
 import { gridToAsc, gridToPoints, gridToXyz, parseAsc, parseXyzGrid, xyzIsGrid, type GridRaster } from './formats/grid';
 import { readGeoTiff, writeGeoTiff } from './formats/geotiff';
 import { readImageInfo, writeJpeg, writePng } from './formats/image';
@@ -59,6 +59,35 @@ describe('drawing DXF', () => {
     const poly = model.entities[5];
     expect(poly.type === 'polyline' && poly.closed && poly.vertices[1].bulge).toBe(0.5);
     expect(model.faces[0]).toMatchObject({ a: { x: 0, y: 0, z: 1 }, c: { x: 0, y: 1, z: 2 } });
+  });
+
+  it('round-trips a 3D polyline with a different elevation on each vertex', () => {
+    const text = drawingToDxf({
+      layers: ['TIN'],
+      faces: [],
+      entities: [
+        {
+          id: 'p',
+          type: 'polyline',
+          layer: 'TIN',
+          color: 'bylayer',
+          closed: false,
+          vertices: [
+            { x: 0, y: 0, z: 10, bulge: 0 },
+            { x: 5, y: 0, z: 12, bulge: 0 },
+            { x: 5, y: 4, z: 11, bulge: 0 },
+          ],
+        },
+      ],
+    });
+    expect(text).toContain('AC1015');
+    expect(text).toContain('\nPOLYLINE\n');
+    const model = parseDxf(text);
+    const poly = model.entities[0];
+    expect(poly.type).toBe('polyline');
+    if (poly.type !== 'polyline') return;
+    expect(poly.poly3d).toBe(true);
+    expect(poly.vertices.map((vertex) => vertex.z)).toEqual([10, 12, 11]);
   });
 
   it('reads a binary LINE', () => {
@@ -240,19 +269,16 @@ describe('shapefile, image, mesh, pdf', () => {
 });
 
 describe('format catalog', () => {
-  it('keeps DWG writable offline and LAZ closed', () => {
-    expect(dwgAvailable()).toBe(true);
-    expect(DWG_VERDICT.read).toBe('yes');
-    expect(DWG_VERDICT.write).toBe('yes');
-    expect(DWG_VERDICT.reason).toMatch(/GPL-3\.0/);
-    expect(DWG_VERDICT.reason).toMatch(/DWG 2000/);
-    expect(DWG_VERDICT.reason).not.toMatch(/https?:\/\//);
-    expect(FORMAT_CATALOG.find((row) => row.id === 'dwg')?.read).toBe('yes');
-    expect(FORMAT_CATALOG.find((row) => row.id === 'dwg')?.write).toBe('yes');
+  it('keeps DXF as the drawing interchange and leaves binary drawings closed', () => {
+    expect(FORMAT_CATALOG.find((row) => row.id === 'dxf')?.read).toBe('yes');
+    expect(FORMAT_CATALOG.find((row) => row.id === 'dxf')?.write).toBe('yes');
+    expect(FORMAT_CATALOG.find((row) => row.id === 'dwg')?.read).toBe('no');
+    expect(FORMAT_CATALOG.find((row) => row.id === 'dwg')?.write).toBe('no');
+    expect(FORMAT_CATALOG.find((row) => row.id === 'dwg')?.note).toBe(BINARY_DRAWING_NOTE);
     expect(FORMAT_CATALOG.find((row) => row.id === 'laz')?.note).toMatch(/LAS 1\.2/);
     const dwg = classifyFile('site.dwg', new Uint8Array([0]));
     expect(dwg.kind).toBe('dwg');
-    expect(dwg.reason).toBeUndefined();
+    expect(dwg.reason).toMatch(/DXF/);
     expect(classifyFile('mesh.obj', new TextEncoder().encode('v 0 0 0\n')).kind).toBe('obj');
   });
 });

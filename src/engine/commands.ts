@@ -31,10 +31,10 @@ export const CIVIL_COMMANDS: CivilCommandSpec[] = [
   { command: 'CREATEASSEMBLY', label: 'Assembly', panel: 'Create Design', group: 'Assembly', hint: 'Lane, shoulder, and daylight subassemblies' },
   { command: 'CREATEPIPENETWORK', label: 'Pipe Network', panel: 'Create Design', group: 'Pipe Network', hint: 'Gravity pipes, Manning capacity, cover' },
   { command: 'CREATEPRESSURENETWORK', label: 'Pressure Network', panel: 'Create Design', group: 'Pressure Network', hint: 'Hazen-Williams head loss and pressure' },
-  { command: 'CREATEMULTIPLEPROFILEVIEW', label: 'Create Multiple Profile Views', panel: 'Profile & Section Views', group: 'Profile View', hint: 'Split the profile into station sheets' },
-  { command: 'ADDPROFILEVIEWBANDS', label: 'Data Bands', panel: 'Profile & Section Views', group: 'Data Bands', hint: 'Station, elevation, and geometry bands' },
-  { command: 'SUPERIMPOSEPROFILE', label: 'Superimpose Profile', panel: 'Profile & Section Views', group: 'Superimpose', hint: 'Project another alignment onto this profile' },
-  { command: 'CREATEQUICKPROFILE', label: 'Quick Profile', panel: 'Profile & Section Views', group: 'Quick Profile', hint: 'Profile along a line, no alignment required' },
+  { command: 'CREATEMULTIPLEPROFILEVIEW', label: 'Create Multiple Profile Views', panel: 'Profile & Section Views', group: 'Profile View', hint: 'Split the profile into station sheets, then pick the insertion point' },
+  { command: 'ADDPROFILEVIEWBANDS', label: 'Data Bands', panel: 'Profile & Section Views', group: 'Data Bands', hint: 'Station, elevation, and geometry bands, placed at a picked point' },
+  { command: 'SUPERIMPOSEPROFILE', label: 'Superimpose Profile', panel: 'Profile & Section Views', group: 'Superimpose', hint: 'Project another alignment onto this profile, then pick the insertion point' },
+  { command: 'CREATEQUICKPROFILE', label: 'Quick Profile', panel: 'Profile & Section Views', group: 'Quick Profile', hint: 'Profile along a line, then pick where the view goes' },
 ];
 
 /** Older tokens kept so a command line or test can still call the same tool. */

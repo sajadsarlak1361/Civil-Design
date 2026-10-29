@@ -1,8 +1,6 @@
 /** Extensions File > Open accepts in the browser and on the desktop. */
 export const OPEN_EXTENSIONS = [
   'dxf',
-  'dwg',
-  'dwt',
   'fieldline',
   'json',
   'xml',
@@ -35,12 +33,11 @@ export interface DialogFilter {
 
 /**
  * Windows shows only the first filter until the user changes it.
- * That filter has to list DXF, DWG, and every other extension the page accepts.
+ * That filter lists DXF and every other extension the page accepts.
  */
 export const OPEN_FILTERS: DialogFilter[] = [
   { name: 'All supported', extensions: [...OPEN_EXTENSIONS] },
   { name: 'DXF', extensions: ['dxf'] },
-  { name: 'DWG', extensions: ['dwg', 'dwt'] },
   { name: 'Civil Design', extensions: ['fieldline', 'json'] },
   { name: 'LandXML', extensions: ['xml', 'landxml'] },
   { name: 'Points', extensions: ['csv', 'txt', 'xyz', 'asc'] },
@@ -53,17 +50,8 @@ export const PROJECT_FILTERS: DialogFilter[] = [{ name: 'Civil Design', extensio
 
 export function saveFilters(extension: string): DialogFilter[] {
   const ext = extension.replace(/^\./, '').toLowerCase();
-  if (ext === 'dwg' || ext === 'dwt') {
-    return [
-      { name: 'DWG', extensions: ['dwg'] },
-      { name: 'DXF', extensions: ['dxf'] },
-    ];
-  }
-  if (ext === 'dxf') {
-    return [
-      { name: 'DXF', extensions: ['dxf'] },
-      { name: 'DWG', extensions: ['dwg'] },
-    ];
+  if (ext === 'dxf' || ext === 'dwg' || ext === 'dwt') {
+    return [{ name: 'DXF', extensions: ['dxf'] }];
   }
   return PROJECT_FILTERS;
 }

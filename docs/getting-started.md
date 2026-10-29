@@ -44,7 +44,7 @@ The Analyze ribbon button **Volume Surface** runs `CREATESURFACECOMPOSITE`. It a
 
 Ctrl+S (`QSAVE`) and Ctrl+Shift+S (`SAVEAS`) both write the Civil Design project. On the desktop the dialog saves a `.fieldline` file. In the browser the download is `.fieldline.json`. The document is JSON, version 1, and includes the drawing and external references. `civil` is optional, so an older file still opens.
 
-DXF, DWG, LandXML, points, PDF, PNG, SVG, and meshes are File → Export. They are separate from the project file. See [file-formats.md](file-formats.md).
+DXF, LandXML, points, PDF, PNG, SVG, and meshes are File → Export. They are separate from the project file. DXF is the drawing interchange. See [file-formats.md](file-formats.md).
 
 ## Next
 

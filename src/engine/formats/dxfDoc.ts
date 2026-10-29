@@ -1,6 +1,14 @@
-import type { BulkGeometry, DrawEntity, Vec3 } from '../drafting';
+import type { BulkGeometry, DrawEntity, DrawPolyline, Vec3 } from '../drafting';
 import type { LinearUnit } from '../types';
 import { createDxfStream, DXF_BULK_BYTES } from './dxfStream';
+
+/**
+ * Drawing interchange is DXF Release 2000 (header token AC1015).
+ * The reader accepts later DXF releases that use the same group codes.
+ * This module is the app's reader and writer. It does not call a paid CAD engine.
+ * Large files stream in dxfStream.ts instead of building one group list.
+ */
+export const DXF_RELEASE = 'AC1015';
 
 export interface DxfFace {
   a: Vec3;
@@ -38,6 +46,29 @@ const ACI: Record<number, string> = {
   7: '#e8eef7',
 };
 
+function polylineHasVaryingZ(entity: DrawPolyline): boolean {
+  if (entity.vertices.length === 0) return false;
+  const z0 = entity.vertices[0].z;
+  return entity.vertices.some((vertex) => Math.abs(vertex.z - z0) > 1e-6);
+}
+
+function polylineDxf(entity: DrawPolyline, common: string): string {
+  if (entity.poly3d || polylineHasVaryingZ(entity)) {
+    let body = pair(0, 'POLYLINE') + common + pair(70, (entity.closed ? 1 : 0) + 8) + pair(66, 1);
+    for (const vertex of entity.vertices) {
+      body += pair(0, 'VERTEX') + pair(8, entity.layer) + pair(10, num(vertex.x)) + pair(20, num(vertex.y)) + pair(30, num(vertex.z));
+      if (vertex.bulge) body += pair(42, num(vertex.bulge));
+    }
+    return body + pair(0, 'SEQEND') + pair(8, entity.layer);
+  }
+  let body = pair(0, 'LWPOLYLINE') + common + pair(90, entity.vertices.length) + pair(70, entity.closed ? 1 : 0) + pair(38, num(entity.vertices[0]?.z ?? 0));
+  for (const vertex of entity.vertices) {
+    body += pair(10, num(vertex.x)) + pair(20, num(vertex.y));
+    if (vertex.bulge) body += pair(42, num(vertex.bulge));
+  }
+  return body;
+}
+
 function pair(code: number, value: string | number): string {
   return `${code}\n${value}\n`;
 }
@@ -64,7 +95,7 @@ export function drawingToDxf(model: DxfModel, unit: LinearUnit = 'm'): string {
     pair(0, 'SECTION') +
     pair(2, 'HEADER') +
     pair(9, '$ACADVER') +
-    pair(1, 'AC1015') +
+    pair(1, DXF_RELEASE) +
     pair(9, '$INSUNITS') +
     pair(70, unit === 'ft' ? 2 : 6) +
     pair(9, '$LTSCALE') +
@@ -97,18 +128,8 @@ export function drawingToDxf(model: DxfModel, unit: LinearUnit = 'm'): string {
         pair(11, num(entity.b.x)) +
         pair(21, num(entity.b.y)) +
         pair(31, num(entity.b.z));
-    } else if (entity.type === 'polyline' && entity.poly3d) {
-      body += pair(0, 'POLYLINE') + common + pair(70, (entity.closed ? 1 : 0) + 8) + pair(66, 1);
-      for (const vertex of entity.vertices) {
-        body += pair(0, 'VERTEX') + pair(8, entity.layer) + pair(10, num(vertex.x)) + pair(20, num(vertex.y)) + pair(30, num(vertex.z));
-      }
-      body += pair(0, 'SEQEND') + pair(8, entity.layer);
     } else if (entity.type === 'polyline') {
-      body += pair(0, 'LWPOLYLINE') + common + pair(90, entity.vertices.length) + pair(70, entity.closed ? 1 : 0) + pair(38, num(entity.vertices[0]?.z ?? 0));
-      for (const vertex of entity.vertices) {
-        body += pair(10, num(vertex.x)) + pair(20, num(vertex.y));
-        if (vertex.bulge) body += pair(42, num(vertex.bulge));
-      }
+      body += polylineDxf(entity, common);
     } else if (entity.type === 'block') {
       body +=
         pair(0, 'INSERT') +

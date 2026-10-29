@@ -4,6 +4,9 @@ import { looksLikeLas, looksLikeLaz, LAZ_REASON } from './las';
 import { looksLikeShp } from './shp';
 import { readImageInfo } from './image';
 
+/** Shown when a binary drawing is opened. Drawing interchange is DXF. */
+export const BINARY_DRAWING_NOTE = 'That binary drawing format is not opened or written here. Use DXF for drawing interchange.';
+
 export type IngestKind =
   | 'project'
   | 'points'
@@ -33,7 +36,7 @@ function isTiff(bytes: Uint8Array): boolean {
 
 export function classifyFile(name: string, bytes: Uint8Array): { kind: IngestKind; reason?: string } {
   const lower = name.toLowerCase();
-  if (lower.endsWith('.dwg') || lower.endsWith('.dwt')) return { kind: 'dwg' };
+  if (lower.endsWith('.dwg') || lower.endsWith('.dwt')) return { kind: 'dwg', reason: BINARY_DRAWING_NOTE };
   if (lower.endsWith('.obj')) return { kind: 'obj' };
   if (lower.endsWith('.stl')) return { kind: 'stl' };
   if (lower.endsWith('.gltf')) return { kind: 'gltf' };

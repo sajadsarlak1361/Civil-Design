@@ -24,14 +24,15 @@ This repository is [sajadsarlak1361/Civil-Design](https://github.com/sajadsarlak
 - The menu bar is File, Edit, View, and Help. The ribbon is compact: double-click a tab or use the corner control to cycle full panels, titles, and tabs.
 - Layers have color, on/off, freeze, lock, linetype, and lineweight. Each object can override color and can be locked on its own.
 - The Properties palette edits the selection. Match Properties and Quick Select sit beside it.
-- External references attach DXF, DWG, Civil Design drawings, and PNG or JPEG images, with overlay, bind, XBIND, and rectangular or polygonal XCLIP.
+- External references attach DXF, Civil Design drawings, and PNG or JPEG images, with overlay, bind, XBIND, and rectangular or polygonal XCLIP.
 - `WBLOCK` writes a block definition to a DXF file.
 - Surfaces are Delaunay TINs, with boundaries, breaklines, contours, elevation and slope shading, and TIN-to-TIN or surface-to-datum volumes.
 - `CREATE3DMESH` builds a 3D mesh with ball pivoting, so a scan can keep a wall or an overhang. `MESHSECTION` cuts that mesh on a vertical plane and reports overbreak and underbreak against a design section.
 - Alignments take tangents, circular curves, and Euler spirals. Profiles, sample lines, sections, offset alignments, superelevation, assemblies, corridors, intersections, grading, parcels, and mass haul are on the design ribbon.
-- File formats include the Civil Design project, DXF, DWG and DWT (read, and write for DWG 2000 and DWG 2004, through bundled LibreDWG), LandXML, point files, ASCII DEM, a limited GeoTIFF, LAS 1.2, shapefile, images, PDF plot, and OBJ, STL, and glTF meshes. LAZ opens the file dialog after the command line explains that a decompressor is not bundled.
-- Heavy TIN builds use a worker pool. A cloud of 25,000 points or more triangulates off the main thread. A mesh of 800 points or more is rebuilt in its own worker. DWG reading runs in a worker.
-- The page does not request the network after it loads. Fonts, the TIN worker, and LibreDWG are inside the build.
+- File formats include the Civil Design project, DXF (the drawing interchange: lines, polylines, points, and basic 3D, read and written in the app), LandXML, point files, ASCII DEM, a limited GeoTIFF, LAS 1.2, shapefile, images, PDF plot, and OBJ, STL, and glTF meshes. LAZ opens the file dialog after the command line explains that a decompressor is not bundled. Binary drawing files are not a menu format.
+- Profile and section views are placed with a click on the plan. Esc cancels.
+- Heavy TIN builds use a worker pool. A cloud of 25,000 points or more triangulates off the main thread. A mesh of 800 points or more is rebuilt in its own worker.
+- The page does not request the network after it loads. Fonts and the TIN worker are inside the build.
 
 Pipe networks and the survey tools (field book, figures, traverse adjustment) are implemented in `src/engine` and switched off in `src/features.ts`. The ribbon hides them. Typing those commands answers `not available in this version`.
 
@@ -85,7 +86,7 @@ CI builds Windows (`nsis`, `msi`) and Linux (`deb`, `appimage`) with `beforeBuil
 | [Getting started](docs/getting-started.md) | Sample project, first surface, save |
 | [User guide](docs/user-guide.md) | Each menu and ribbon tool |
 | [Commands and shortcuts](docs/commands-and-shortcuts.md) | Commands that run, aliases, keys |
-| [File formats](docs/file-formats.md) | Project, DXF, DWG, LandXML, point clouds |
+| [File formats](docs/file-formats.md) | Project, DXF, LandXML, point clouds |
 | [Tunnel sections](docs/tunnel-sections.md) | Ball-pivoting mesh and MESHSECTION |
 | [Architecture](docs/architecture.md) | Layout of the source |
 | [Building and releasing](docs/building-and-releasing.md) | npm, Tauri, GitHub Actions |
@@ -105,4 +106,4 @@ CI builds Windows (`nsis`, `msi`) and Linux (`deb`, `appimage`) with `beforeBuil
 
 Copyright (c) 2026 Sajad Sarlak. All rights reserved.
 
-Sajad Sarlak holds the copyright in the Civil Design code and branding. The desktop installers and the single-file page include LibreDWG and are distributed under GPL-3.0. You may copy, redistribute, and modify those builds under GPL-3.0. See [LICENSE](LICENSE) and [THIRD_PARTY_NOTICES.md](THIRD_PARTY_NOTICES.md).
+Sajad Sarlak holds the copyright in the Civil Design code and branding. Drawing interchange is DXF. A LibreDWG module remains in the repository for tests and stays under GPL-3.0. See [LICENSE](LICENSE) and [THIRD_PARTY_NOTICES.md](THIRD_PARTY_NOTICES.md).
