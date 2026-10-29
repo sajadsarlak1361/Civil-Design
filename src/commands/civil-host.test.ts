@@ -19,6 +19,7 @@ function host(open: (command: string) => void): CadHost {
     createDesignProfile: noop,
     createSampleLines: noop,
     showSections: noop,
+    beginPlacedView: noop,
     toggleContours: noop,
     showComingSoon: () => open('soon'),
     openCivilCommand: open,

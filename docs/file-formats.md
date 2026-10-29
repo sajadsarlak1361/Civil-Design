@@ -1,12 +1,12 @@
 # File formats
 
-File → Import and File → Export list every format. A row Civil Design cannot read or write stays in the menu, greyed out, with the reason on the tooltip. The catalog is `FORMAT_CATALOG` in `src/engine/formats/status.ts`.
+File → Import and File → Export list the formats Civil Design reads or writes. A row it cannot read or write stays in the menu only when a command can explain the limit (LAZ). The binary drawing format is omitted from the menus. The catalog is `FORMAT_CATALOG` in `src/engine/formats/status.ts`.
 
 | Format | Extensions | Read | Write | What the code does |
 | --- | --- | --- | --- | --- |
 | Civil Design project | `.fieldline`, `.fieldline.json` | yes | yes | JSON, format id `fieldline-project`, version 1. Drawing entities and xrefs are included. Desktop save uses `.fieldline`. The browser download uses `.fieldline.json`. |
-| DXF | `.dxf` | yes | yes | ASCII and binary DXF. Entities: POINT, LINE, LWPOLYLINE, CIRCLE, ARC, TEXT, 3DFACE. |
-| DWG / DWT | `.dwg`, `.dwt` | yes | yes | See below. |
+| DXF | `.dxf` | yes | yes | ASCII and binary DXF. Entities: POINT, LINE, LWPOLYLINE, POLYLINE with per-vertex elevation, CIRCLE, ARC, TEXT, 3DFACE. See below. |
+| Binary drawing | `.dwg`, `.dwt` | no | no | Not offered. Use DXF. |
 | LandXML | `.xml`, `.landxml` | yes | yes | Surfaces (`Pnts` / `Faces`), CgPoints, alignments, and profiles. Export is LandXML 1.2. |
 | Point file | `.csv`, `.txt`, `.xyz` | yes | yes | PNEZD, PENZD, PNEZ, PENZ, NEZ, ENZ, and XYZ. Delimiters are comma, whitespace, or tab. |
 | ASCII DEM | `.asc` | yes | yes | ESRI ASCII grid, and an XYZ grid of cell centers. |
@@ -26,33 +26,23 @@ Open accepts those extensions in one picker. The desktop filters are in `src/lib
 
 ## Project file
 
-`SAVE`, `QSAVE`, and `SAVEAS` all call `saveProject`. They write the project JSON. They do not open a DWG or DXF save dialog. `DXFOUT` is a `classic.pgp` alias of `SAVEAS`, so it saves the project too. To write a DXF, use File → Export → DXF or the `EXPORT` command.
+`SAVE`, `QSAVE`, and `SAVEAS` all call `saveProject`. They write the project JSON. They do not open a DXF save dialog. `DXFOUT` is a `classic.pgp` alias of `SAVEAS`, so it saves the project too. To write a DXF, use File → Export → DXF or the `EXPORT` command.
 
 The unit (meters or feet) is a label for LandXML, stationing, and the volume report. Switching it does not convert stored coordinates.
 
-## DWG
+## DXF
 
-LibreDWG reads and writes DWG offline in the browser and on the desktop. No other program is required for reading, or for writing DWG 2000 and DWG 2004.
+DXF is the drawing interchange path. Civil Design reads and writes it in `src/engine/formats/dxfDoc.ts`. Large files stream in `src/engine/formats/dxfStream.ts` instead of building one group list.
 
-The reader is LibreDWG 0.14, packaged as `@mlightcad/libredwg-web` 0.8.2. The first DWG open loads it in a worker. It reads R14 through 2018. That published package does not include a writer, so Civil Design also bundles a second LibreDWG module, built with the write API from commit `a8ccb1f3`. The wrapper is `src/engine/formats/vendor/cd-dxf2dwg.c`. GPL-3.0 credit is in `THIRD_PARTY_NOTICES.md`.
+The writer emits Release 2000 group structure. The header token is `AC1015`. Later DXF readers accept that interchange version. The reader does not require a particular release. It keeps POINT, LINE, LWPOLYLINE (including bulge), POLYLINE/VERTEX when elevations differ, CIRCLE, ARC, TEXT, 3DFACE, and block inserts. ASCII and binary DXF both open. A flat polyline keeps one elevation. A polyline whose vertices are not at the same elevation is written as a 3D polyline so the elevations round-trip.
 
-File → Export → DWG writes a DWG file. File → Save, Save As, and `DXFOUT` still write the project JSON.
+This is the app's own reader and writer. It does not call a paid CAD engine. A separate JavaScript package was not added: the maintained readers are import-only or do not stream a large civil drawing, and they would drop the 3D path this module already round-trips.
 
-**Browser and `civil-design.html`.** Open and Export → DWG both use the bundled LibreDWG modules. There is no converter in the page. DWG 2000 and DWG 2004 are written directly. A newer save version still produces a DWG 2000 file, and the message includes the download address for ODA File Converter.
+File → Import → DXF and File → Export → DXF are the menu entries. File → Save still writes the project JSON.
 
-**Desktop.** File → DWG Settings stores the engine in `localStorage` under `fieldline.dwg`. The default save version is DWG 2000.
+## Binary drawings
 
-| Engine | Behavior |
-| --- | --- |
-| Auto | Write DWG 2000 or DWG 2004 with LibreDWG. For 2007 and later, use ODA File Converter when it is found. Otherwise write DWG 2000 and show the download address. |
-| LibreDWG | Always the bundled reader and writer. Newer versions are saved as DWG 2000. |
-| ODA | Require ODA File Converter. |
-
-ODA is not shipped. The download address is `https://www.opendesign.com/guestfiles/oda_file_converter`. Windows looks in `Program Files\ODA\ODAFileConverter` and in versioned folders beside it. Linux looks at `/usr/bin/ODAFileConverter`, `/usr/local/bin/ODAFileConverter`, `/opt/ODAFileConverter/ODAFileConverter`, and `ODAFileConverter` under the home directory. You can set another path in DWG Settings.
-
-LibreDWG encodes 2000 and 2004. It does not encode 2007, and 2010 through 2018 writes are still planned upstream. Those versions are written only when ODA File Converter is installed. A DWG 2004 file from this writer is much larger than the same drawing saved as DWG 2000.
-
-Mapped drawing entities are line, polyline, arc, circle, text, point, 3DFACE, and block inserts. Other entity types are skipped.
+`.dwg` and `.dwt` are not in File → Import, File → Export, Insert, or the open dialog. Opening or attaching one reports that DXF is the interchange format and does not place geometry. There is no settings dialog for that format.
 
 ## Point clouds
 

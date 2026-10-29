@@ -254,6 +254,7 @@ export function getCadSettings(): CadSettings {
 
 export function interactionMode(): 'idle' | 'point' | 'select' | 'tool' {
   const tool = getHost()?.getTool() ?? 'pan';
+  if (pointArm) return 'point';
   if (picking) return 'select';
   if (clipAsk) return 'point';
   if (session && prompt?.expect === 'select') return 'select';
@@ -650,6 +651,7 @@ function execute(typed: string, command: string, resolved?: ResolvedCommand, opt
     say(`${(hit.command || body || typed).toUpperCase()}: not a transparent command`, 'error');
     return;
   }
+  if (!quote) clearPointArm(true);
   if (session && !quote) {
     const cancelled = stepCommand(session, model, settings, { kind: 'cancel' }, clipboard);
     session = null;
@@ -999,19 +1001,19 @@ function immediate(command: string, options?: { mode?: 'layout' | 'tangents' | '
       return;
     case 'CREATEPROFILEFROMSURFACE':
     case 'CREATEPROFILEVIEW':
-      cad?.showProfile();
+      cad?.beginPlacedView('profile');
       return;
     case 'CREATEPROFILELAYOUT':
       cad?.createDesignProfile();
       return;
     case 'CREATESAMPLELINES':
-      cad?.createSampleLines();
+      cad?.beginPlacedView('samples');
       return;
     case 'CREATESECTIONVIEW':
-      cad?.showSections('single');
+      cad?.beginPlacedView('section');
       return;
     case 'CREATEMULTIPLESECTIONVIEW':
-      cad?.showSections('multiple');
+      cad?.beginPlacedView('sections');
       return;
     case 'CREATEPOINTS':
     case 'CREATEPOINTGROUP':
@@ -1231,6 +1233,23 @@ export function applyQuickSelect(filter: QuickFilter): number {
 }
 
 export function submitInput(raw?: string): void {
+  if (pointArm && (raw !== undefined || input.trim() !== '')) {
+    const text = raw ?? input;
+    input = '';
+    const parsed = parsePromptInput(text, prompt ?? { head: 'Specify insertion point', expect: 'point', keywords: [], spaceCommits: false }, null, overlay.cursor);
+    if (parsed.kind === 'point') {
+      const fn = pointArm;
+      pointArm = null;
+      pointCancel = null;
+      prompt = null;
+      fn(parsed.point);
+    } else if (parsed.kind === 'empty') {
+      clearPointArm(true);
+      say('Cancel.', 'message');
+    } else say(parsed.kind === 'invalid' ? parsed.message : 'Point required.', 'error');
+    publishUi();
+    return;
+  }
   if (!session && picking && (raw === undefined || raw.trim() === '')) {
     picking = false;
     input = '';
@@ -1398,6 +1417,13 @@ function auditDrawing(): void {
 }
 
 export function cancelInput(): void {
+  if (pointArm) {
+    clearPointArm(true);
+    say('Cancel.', 'message');
+    publishUi();
+    publishView();
+    return;
+  }
   if (getWorkspace().locomotion !== 'none') {
     setLocomotion('none');
     say('Navigation stopped.', 'message');
@@ -1468,16 +1494,42 @@ export function hoverWorld(world: Vec3, tolerance: number): void {
 }
 
 let pointArm: ((point: Vec3) => void) | null = null;
+let pointCancel: (() => void) | null = null;
 
 export function armPoint(fn: ((point: Vec3) => void) | null): void {
   pointArm = fn;
+  if (!fn) pointCancel = null;
+}
+
+/** Command-line prompt that waits for one plan click. Esc or a new command calls `onCancel` and places nothing. */
+export function promptForPoint(head: string, onPoint: (point: Vec3) => void, onCancel?: () => void): void {
+  if (pointCancel) pointCancel();
+  pointCancel = onCancel ?? null;
+  pointArm = (point) => {
+    pointCancel = null;
+    onPoint(point);
+  };
+  prompt = { head, expect: 'point', keywords: [], spaceCommits: false };
+  say(head, 'prompt');
+  publishUi();
+}
+
+function clearPointArm(notify: boolean): void {
+  const cancel = pointCancel;
+  pointArm = null;
+  pointCancel = null;
+  if (!session) prompt = null;
+  if (notify) cancel?.();
 }
 
 export function clickWorld(point: Vec3): boolean {
   if (pointArm) {
     const fn = pointArm;
     pointArm = null;
+    pointCancel = null;
+    prompt = null;
     fn(point);
+    publishUi();
     return true;
   }
   if (clipAsk) {

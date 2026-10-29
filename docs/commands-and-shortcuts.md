@@ -160,7 +160,7 @@ Menu labels that look like shortcuts and are typed aliases, not keys: Redraw is 
 | `VIEWCUBE` | Toggle the ViewCube |
 | `VSCURRENT` | Set the visual style |
 | `XREF` | Open the External References palette |
-| `XATTACH` | Attach a DXF, DWG, or Civil Design drawing |
+| `XATTACH` | Attach a DXF or Civil Design drawing |
 | `IMAGEATTACH` | Attach a PNG or JPEG |
 | `XBIND` | Bind individual xref layers into the drawing |
 | `XCLIP` | Clip an external reference with a rectangle |
@@ -178,10 +178,10 @@ Menu labels that look like shortcuts and are typed aliases, not keys: Redraw is 
 | `CREATEALIGNMENTENTITIES` | Create an alignment from a polyline or the surface boundary |
 | `CREATEPROFILEFROMSURFACE` | Sample the active surface along the alignment |
 | `CREATEPROFILELAYOUT` | Add a parabolic vertical curve above the surface |
-| `CREATEPROFILEVIEW` | Open the profile view |
-| `CREATESAMPLELINES` | Place sample lines along the alignment |
-| `CREATESECTIONVIEW` | Open one section view |
-| `CREATEMULTIPLESECTIONVIEW` | Open every sample line on one section sheet |
+| `CREATEPROFILEVIEW` | Place a profile view at a picked point on the plan |
+| `CREATESAMPLELINES` | Click an alignment to show its sample lines |
+| `CREATESECTIONVIEW` | Place one section view at a picked point on the plan |
+| `CREATEMULTIPLESECTIONVIEW` | Place every sample line as section views at a picked point |
 | `CREATEPOINTS` | Create COGO points |
 | `CREATEPOINTGROUP` | Create a point group |
 | `IMPORTSURVEYDATA` | Import a survey database |
@@ -199,10 +199,10 @@ Menu labels that look like shortcuts and are typed aliases, not keys: Redraw is 
 | `CREATEASSEMBLY` | Create an assembly |
 | `CREATEPIPENETWORK` | Create a pipe network |
 | `CREATEPRESSURENETWORK` | Create a pressure network |
-| `CREATEMULTIPLEPROFILEVIEW` | Create multiple profile views |
-| `SUPERIMPOSEPROFILE` | Superimpose a profile |
-| `CREATEQUICKPROFILE` | Create a quick profile |
-| `ADDPROFILEVIEWBANDS` | Add profile view data bands |
+| `CREATEMULTIPLEPROFILEVIEW` | Place profile sheets at a picked point on the plan |
+| `SUPERIMPOSEPROFILE` | Superimpose a profile, then place the view at a picked point |
+| `CREATEQUICKPROFILE` | Profile a line, then place the view at a picked point |
+| `ADDPROFILEVIEWBANDS` | Place a profile view with station, elevation, and geometry bands |
 | `ELLIPSE` | Draw an ellipse by axis and end |
 | `ELLIPSEC` | Draw an ellipse from its center |
 | `ELLIPSEA` | Draw an elliptical arc |

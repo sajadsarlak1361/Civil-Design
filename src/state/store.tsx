@@ -63,9 +63,12 @@ import {
   type VolumeResult,
   type VolumeSetup,
 } from '../engine';
-import { getDrawingModel, postMessage, readDrawingFile, writeDrawingFile } from '../commands/runtime';
+import { getView } from '../commands/host';
+import { getDrawingModel, postMessage, promptForPoint, readDrawingFile, writeDrawingFile } from '../commands/runtime';
+import { alignmentSamples, nearestBySamples, profileViewEntities, sectionViewEntities } from '../engine/placedView';
 import { emptyXrefs, getXrefDoc, replaceXrefs } from '../engine/xref';
 import { hasBvh } from '../engine/bvh';
+import type { DrawEntity } from '../engine/drafting';
 import { layerTemplate } from '../engine/layers';
 import { buildMeshAsync, cancelActiveMesh, MeshCancelled, sectionMeshAsync } from '../engine/meshAsync';
 import { isModelLocked, lockMessage } from '../engine/objects';
@@ -79,6 +82,19 @@ import proposedPadCsv from '../../public/samples/proposed-pad-pnezd.csv?raw';
 export type ViewMode = 'plan' | '3d' | 'split' | 'profile' | 'section';
 export type DrawTool = 'pan' | 'boundary' | 'breakline' | 'alignment' | 'featureline' | 'parcel' | 'quickprofile' | 'point' | 'sectionline';
 export type SectionLayout = 'single' | 'multiple';
+export type PlacedViewKind = 'profile' | 'section' | 'sections' | 'samples';
+
+interface PlaceSnapshot {
+  unit: LinearUnit;
+  alignments: AlignmentRecord[];
+  surfaces: SurfaceRecord[];
+  activeAlignmentId: string | null;
+  profileBands: boolean;
+  profileSheetLength: number | null;
+  profileSheetOverlap: number;
+  superimposed: SuperimposedProfile | null;
+  sectionIndex: number;
+}
 
 export interface SuperimposedProfile {
   name: string;
@@ -422,6 +438,148 @@ export function deriveAlignments(alignments: AlignmentRecord[], surfaces: Surfac
   });
 }
 
+const PLACE_PROMPT: Record<PlacedViewKind, string> = {
+  profile: 'Specify profile view insertion point',
+  section: 'Specify section view insertion point',
+  sections: 'Specify section views insertion point',
+  samples: 'Click the alignment to place sample lines',
+};
+
+function placeSnapshotOf(state: AppState): PlaceSnapshot {
+  return {
+    unit: state.unit,
+    alignments: state.alignments,
+    surfaces: state.surfaces,
+    activeAlignmentId: state.activeAlignmentId,
+    profileBands: state.profileBands,
+    profileSheetLength: state.profileSheetLength,
+    profileSheetOverlap: state.profileSheetOverlap,
+    superimposed: state.superimposed,
+    sectionIndex: state.sectionIndex,
+  };
+}
+
+function placeBlocker(kind: PlacedViewKind, snap: PlaceSnapshot): string | null {
+  if (snap.alignments.length === 0) {
+    if (kind === 'samples') return 'Create an alignment before sample lines.';
+    if (kind === 'profile') return 'Create an alignment before a profile view.';
+    return 'Create an alignment before section views.';
+  }
+  if (kind === 'profile') {
+    const views = deriveAlignments(snap.alignments, snap.surfaces);
+    const view = views.find((item) => item.record.id === snap.activeAlignmentId) ?? views[0];
+    const hasProfile = Boolean(view && (view.profiles.some((profile) => profile.vertices.some((vertex) => vertex.elevation !== null)) || view.designSamples.length > 1));
+    const hasSuper = (snap.superimposed?.samples.length ?? 0) > 1;
+    if (!hasProfile && !hasSuper) return 'A profile view needs a surface profile or a design profile.';
+  }
+  if ((kind === 'section' || kind === 'sections') && snap.surfaces.every((surface) => !surface.visible || surface.triangles.length === 0 || isMeshSurface(surface))) {
+    return 'A section view needs a visible surface.';
+  }
+  return null;
+}
+
+function commitPlaced(entities: DrawEntity[], layerName: string, colorIndex: number, description: string, label: string): number {
+  const model = getDrawingModel();
+  model.checkpoint(label);
+  if (!model.layer(layerName)) model.doc.layers.push(layerTemplate(layerName, colorIndex, { description }));
+  const ids: string[] = [];
+  for (const entity of entities) {
+    const id = model.nextId();
+    model.add({ ...entity, id });
+    ids.push(id);
+  }
+  model.doc.selection = ids;
+  model.emit();
+  getView()?.redraw();
+  return ids.length;
+}
+
+function buildPlaced(kind: PlacedViewKind, snap: PlaceSnapshot, point: { x: number; y: number }): {
+  status: string;
+  entities?: DrawEntity[];
+  layer?: string;
+  colorIndex?: number;
+  description?: string;
+  label?: string;
+  alignments?: AlignmentRecord[];
+  activeAlignmentId?: string;
+} {
+  if (kind === 'samples') {
+    const views = deriveAlignments(snap.alignments, snap.surfaces);
+    const id =
+      nearestBySamples(
+        views.map((view) => ({ id: view.record.id, samples: alignmentSamples(view.solved) })),
+        point,
+      ) ??
+      snap.activeAlignmentId ??
+      views[0]?.record.id ??
+      null;
+    if (!id) return { status: 'Create an alignment before sample lines.' };
+    const record = snap.alignments.find((item) => item.id === id);
+    return {
+      status: `Sample lines along ${record?.name ?? 'the alignment'}.`,
+      alignments: snap.alignments.map((item) => (item.id === id ? { ...item, showSampleLines: true } : item)),
+      activeAlignmentId: id,
+    };
+  }
+  const views = deriveAlignments(snap.alignments, snap.surfaces);
+  const view = views.find((item) => item.record.id === snap.activeAlignmentId) ?? views[0];
+  if (!view) return { status: 'Create an alignment first.' };
+  let seq = 0;
+  const nextId = () => `p${++seq}`;
+  if (kind === 'profile') {
+    const entities = profileViewEntities(
+      {
+        name: view.record.name,
+        unit: snap.unit,
+        startStation: view.record.startStation,
+        solved: view.solved,
+        profiles: view.profiles,
+        design: view.designSamples,
+        superimposed: snap.superimposed,
+        sheetLength: snap.profileSheetLength,
+        sheetOverlap: snap.profileSheetOverlap,
+        bands: snap.profileBands,
+      },
+      point,
+      nextId,
+    );
+    if (!entities) return { status: 'Nothing to place. The profile does not cross a surface.' };
+    return {
+      status: `Profile view placed at ${point.x.toFixed(1)}, ${point.y.toFixed(1)}.`,
+      entities,
+      layer: 'C-PROF',
+      colorIndex: 2,
+      description: 'Profile views',
+      label: 'PROFILEVIEW',
+    };
+  }
+  const sources = snap.surfaces.filter((surface) => surface.visible && surface.triangles.length > 0 && !isMeshSurface(surface));
+  const lines = sampleLinesAlong(view.solved, view.record.startStation, view.record.sampleSpacing, view.record.sampleLeft, view.record.sampleRight);
+  const sections = lines.map((line) => ({
+    station: line.station,
+    surfaces: sources.map((surface) => ({
+      name: surface.name,
+      color: surface.style.color,
+      samples: sectionFromSurface(surface.points, surface.triangles, line, view.record.sectionStep),
+    })),
+  }));
+  const entities = sectionViewEntities(
+    { unit: snap.unit, sections, layout: kind === 'sections' ? 'multiple' : 'single', index: snap.sectionIndex },
+    point,
+    nextId,
+  );
+  if (!entities) return { status: 'Nothing to place. The section does not cross a surface.' };
+  return {
+    status: `Section view placed at ${point.x.toFixed(1)}, ${point.y.toFixed(1)}.`,
+    entities,
+    layer: 'C-SECT',
+    colorIndex: 4,
+    description: 'Section views',
+    label: kind === 'sections' ? 'SECTIONVIEWS' : 'SECTIONVIEW',
+  };
+}
+
 function rebuild(surface: SurfaceRecord, patch: Partial<Pick<SurfaceRecord, 'boundary' | 'breaklines' | 'maxEdgeLength'>>): SurfaceRecord {
   const boundary = patch.boundary === undefined ? surface.boundary : patch.boundary;
   const breaklines = patch.breaklines === undefined ? surface.breaklines : patch.breaklines;
@@ -520,6 +678,7 @@ interface ProjectApi {
   showProfile: () => void;
   showSections: (layout: SectionLayout) => void;
   createSampleLines: () => void;
+  beginPlacedView: (kind: 'profile' | 'section' | 'sections' | 'samples') => void;
   stepSection: (delta: number) => void;
   toggleContours: () => void;
   openCommand: (command: string) => void;
@@ -560,6 +719,7 @@ export function ProjectProvider({ children }: { children: ReactNode }) {
   const [state, dispatch] = useReducer(reducer, undefined, emptyState);
   const stateRef = useRef(state);
   stateRef.current = state;
+  const placeSnap = useRef<PlaceSnapshot | null>(null);
 
   const updateSurfaces = useCallback((surfaces: SurfaceRecord[], activeId?: string | null, clearVolume = false) => {
     dispatch({ type: 'surfaces', surfaces, activeId, clearVolume });
@@ -799,6 +959,47 @@ export function ProjectProvider({ children }: { children: ReactNode }) {
         nextId: (prefix: string) => `${prefix}-${nextId()}`,
       };
     };
+    const beginPlacedView = (kind: PlacedViewKind, snapshot?: PlaceSnapshot) => {
+      const snap = snapshot ?? placeSnapshotOf(stateRef.current);
+      const blocked = placeBlocker(kind, snap);
+      if (blocked) {
+        dispatch({ type: 'patch', patch: { status: blocked, view: 'plan' } });
+        postMessage(blocked);
+        return;
+      }
+      placeSnap.current = snap;
+      const head = PLACE_PROMPT[kind];
+      promptForPoint(
+        head,
+        (point) => {
+          const used = placeSnap.current ?? snap;
+          placeSnap.current = null;
+          const built = buildPlaced(kind, used, point);
+          let status = built.status;
+          if (built.entities && built.layer && built.colorIndex !== undefined && built.description && built.label) {
+            const count = commitPlaced(built.entities, built.layer, built.colorIndex, built.description, built.label);
+            status = `${status} ${count} objects.`;
+          }
+          dispatch({
+            type: 'patch',
+            patch: {
+              status,
+              view: 'plan',
+              tool: 'pan',
+              draft: [],
+              ...(built.alignments ? { alignments: built.alignments } : {}),
+              ...(built.activeAlignmentId ? { activeAlignmentId: built.activeAlignmentId } : {}),
+            },
+          });
+          postMessage(status);
+        },
+        () => {
+          placeSnap.current = null;
+          dispatch({ type: 'patch', patch: { status: 'Cancelled.', view: 'plan', tool: 'pan', draft: [] } });
+        },
+      );
+      dispatch({ type: 'patch', patch: { view: 'plan', tool: 'pan', draft: [], status: head } });
+    };
     const applyResult = (result: CommandResult) => {
       const current = stateRef.current;
       const created: SurfaceRecord[] = [];
@@ -814,6 +1015,17 @@ export function ProjectProvider({ children }: { children: ReactNode }) {
         );
       }
       const surfaces = created.length > 0 ? [...current.surfaces, ...created] : current.surfaces;
+      const nextSnap: PlaceSnapshot = {
+        unit: current.unit,
+        alignments: result.alignments,
+        surfaces,
+        activeAlignmentId: result.activeAlignmentId !== undefined ? result.activeAlignmentId : current.activeAlignmentId,
+        profileBands: result.profileBands !== undefined ? result.profileBands : current.profileBands,
+        profileSheetLength: result.profileSheetLength !== undefined ? result.profileSheetLength : current.profileSheetLength,
+        profileSheetOverlap: result.profileSheetOverlap !== undefined ? result.profileSheetOverlap : current.profileSheetOverlap,
+        superimposed: result.superimposed !== undefined ? result.superimposed : current.superimposed,
+        sectionIndex: current.sectionIndex,
+      };
       dispatch({
         type: 'patch',
         patch: {
@@ -824,7 +1036,7 @@ export function ProjectProvider({ children }: { children: ReactNode }) {
           ...(created[0] ? { activeId: created[0].id, volumeResult: null, showVolumeMap: false } : {}),
           status: result.status,
           commandSummary: result.summary,
-          ...(result.view ? { view: result.view } : {}),
+          ...(result.placeView ? { view: 'plan' as const } : result.view ? { view: result.view } : {}),
           ...(result.profileBands !== undefined ? { profileBands: result.profileBands } : {}),
           ...(result.profileSheetLength !== undefined ? { profileSheetLength: result.profileSheetLength, profileSheetIndex: 0 } : {}),
           ...(result.profileSheetOverlap !== undefined ? { profileSheetOverlap: result.profileSheetOverlap } : {}),
@@ -834,6 +1046,7 @@ export function ProjectProvider({ children }: { children: ReactNode }) {
           fitToken: result.ok ? current.fitToken + 1 : current.fitToken,
         },
       });
+      if (result.ok && result.placeView) beginPlacedView(result.placeView, nextSnap);
     };
     const applySurfaceChange = (item: SurfaceUndo): SurfaceUndo | null => {
       const current = stateRef.current;
@@ -1303,7 +1516,7 @@ const alignments = read.alignments.map((item) => ({
                   : tool === 'parcel'
                     ? 'Parcel · click the lot corners, Enter to close.'
                     : tool === 'quickprofile'
-                      ? 'Quick profile · click a line, Enter to open it.'
+                      ? 'Quick profile · click a line, Enter, then pick the insertion point.'
                       : tool === 'point'
                         ? 'Point · click to place. Elevation comes from the active surface.'
                         : tool === 'sectionline'
@@ -1703,6 +1916,7 @@ const alignments = read.alignments.map((item) => ({
           },
         });
       },
+      beginPlacedView: (kind) => beginPlacedView(kind),
       createSampleLines: () => {
         const current = stateRef.current;
         const alignment = current.alignments.find((item) => item.id === current.activeAlignmentId) ?? current.alignments[0];

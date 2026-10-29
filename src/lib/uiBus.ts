@@ -17,8 +17,6 @@ export type UiRequest =
   | 'export-stl'
   | 'export-gltf'
   | 'export-volume'
-  | 'export-dwg'
-  | 'dwg-settings'
   | 'links'
   | 'render';
 

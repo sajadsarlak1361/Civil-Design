@@ -2,19 +2,21 @@ import { describe, expect, it } from 'vitest';
 import { OPEN_ACCEPT, OPEN_EXTENSIONS, OPEN_FILTERS, dialogPath, pathsFromDropPayload, saveFilters } from './openFiles';
 
 describe('open file filters', () => {
-  it('shows DXF and DWG in the default dialog filter and the browser accept list', () => {
+  it('shows DXF in the default dialog filter and the browser accept list', () => {
     const first = OPEN_FILTERS[0];
     expect(first.name).toBe('All supported');
-    expect(first.extensions.slice(0, 3)).toEqual(['dxf', 'dwg', 'dwt']);
+    expect(first.extensions[0]).toBe('dxf');
+    expect(first.extensions).not.toContain('dwg');
+    expect(first.extensions).not.toContain('dwt');
     for (const extension of OPEN_EXTENSIONS) {
       expect(first.extensions).toContain(extension);
       expect(OPEN_ACCEPT.split(',')).toContain(`.${extension}`);
     }
     expect(OPEN_FILTERS.some((filter) => filter.extensions.includes('dxf'))).toBe(true);
-    expect(OPEN_FILTERS.some((filter) => filter.extensions.includes('dwg'))).toBe(true);
+    expect(OPEN_FILTERS.some((filter) => filter.extensions.includes('dwg'))).toBe(false);
     expect(OPEN_FILTERS.some((filter) => filter.extensions.includes('csv'))).toBe(true);
-    expect(saveFilters('dwg')[0].extensions).toEqual(['dwg']);
     expect(saveFilters('dxf')[0].extensions).toEqual(['dxf']);
+    expect(saveFilters('dwg')[0].extensions).toEqual(['dxf']);
   });
 
   it('reads a path from a string, a file URL, and a tagged dialog result', () => {

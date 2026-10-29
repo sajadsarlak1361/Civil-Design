@@ -1,6 +1,5 @@
 import { useState, useSyncExternalStore } from 'react';
 import { applyXrefBind, getDrawingModel, getView, runCommand } from '../commands/runtime';
-import { DWG_VERDICT } from '../engine/formats/dwg';
 import {
   detachXref,
   displayStatus,
@@ -93,7 +92,7 @@ export function XrefPalette() {
       <div className="xref-actions">
         <button type="button" onClick={() => runCommand('XATTACH')}>Attach</button>
         <button type="button" onClick={() => runCommand('IMAGEATTACH')}>Image</button>
-        <button type="button" title={DWG_VERDICT.reason} onClick={() => runCommand('OPEN')}>DWG</button>
+        <button type="button" title="Attach or open a DXF" onClick={() => runCommand('OPEN')}>DXF</button>
         <button type="button" onClick={() => act((id) => updateXrefs((current) => detachXref(current, id)))}>Detach</button>
         <button type="button" onClick={() => act((id) => updateXrefs((current) => unloadXref(current, id)))}>Unload</button>
         <button type="button" onClick={() => act((id) => updateXrefs((current) => reloadXref(current, id, selected?.snapshot ?? null, selected?.snapshot != null)))}>Reload</button>

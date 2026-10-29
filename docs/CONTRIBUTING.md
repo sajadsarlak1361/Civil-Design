@@ -23,7 +23,7 @@ Desktop changes also need Rust 1.77.2 or newer and the Tauri CLI. See [building-
 ## What to keep stable
 
 - The app stays offline. Do not add a CDN, a font stylesheet, a tile server, a remote image, or a worker URL. `scripts/check-offline.ts` scans `index.html`, `src/`, `public/`, and the built pages. Namespace strings that are not fetched (SVG, XHTML, MathML, LandXML 1.2) are the allowlist. `data:` URIs are ignored. A root-absolute `src` or `href` fails the pages build.
-- Keep LibreDWG in the desktop and web builds, and keep DWG Settings on Auto, LibreDWG, and ODA. Credit it in `THIRD_PARTY_NOTICES.md`.
+- Drawing interchange is the in-repo DXF reader and writer. Do not add a paid CAD engine for DXF, and do not put the binary drawing format back on the File or Insert menus. Credit bundled third-party code in `THIRD_PARTY_NOTICES.md`.
 - `beforeBuildCommand` in `src-tauri/tauri.conf.json` stays `npm run build`.
 - `productName` stays `Civil-Design`. The window title stays Civil Design. The identifier stays `com.civildesign.app`.
 - Internal identifiers stay `fieldline`: the project extension, the format id `fieldline-project`, the `localStorage` key `fieldline.dwg`, the clipboard format, the xref kind, and the Rust crate `fieldline` / library `fieldline_lib`.

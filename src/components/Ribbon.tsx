@@ -5,7 +5,7 @@ import { parseColorInput } from '../engine/aci';
 import { contoursToDxf, generateContours, surfaceToLandXml, trianglesToDxf, volumeReportCsv } from '../engine';
 import { applyColorToIds, lockMessage } from '../engine/objects';
 import { features } from '../features';
-import { DWG_SETTINGS, FILE_IMPORT, REFERENCE_MENU, type FileMenuAction } from './fileMenu';
+import { FILE_IMPORT, REFERENCE_MENU, type FileMenuAction } from './fileMenu';
 import { downloadText } from '../lib/download';
 import { requestUi } from '../lib/uiBus';
 import { fileSlug } from '../lib/format';
@@ -183,7 +183,7 @@ export const Ribbon = memo(function Ribbon() {
           <>
             <DraftPanels names={['Block']} />
             <ActionPanel title="Reference" items={REFERENCE_MENU} />
-            <ActionPanel title="Import" items={[...FILE_IMPORT, DWG_SETTINGS]} />
+            <ActionPanel title="Import" items={FILE_IMPORT} />
             <CommandPanel title="Point Cloud" items={[['3D Mesh', 'CREATE3DMESH'], ['Mesh Section', 'MESHSECTION']]} />
           </>
         )}
@@ -353,7 +353,7 @@ function civilPanels(): { title: string; groups: RibbonGroup[] }[] {
           id: 'profile',
           label: 'Profile',
           items: [
-            { label: 'Create Surface Profile', hint: 'Sample the TIN along the alignment', command: 'CREATEPROFILEFROMSURFACE', run: () => runCommand('CREATEPROFILEFROMSURFACE') },
+            { label: 'Create Surface Profile', hint: 'Sample the TIN, then pick the profile insertion point', command: 'CREATEPROFILEFROMSURFACE', run: () => runCommand('CREATEPROFILEFROMSURFACE') },
             { label: 'Profile Creation Tools', hint: 'Parabolic vertical curve above the surface', command: 'CREATEPROFILELAYOUT', run: () => runCommand('CREATEPROFILELAYOUT') },
             command('CREATEPROFILEFROMCORRIDOR'),
           ],
@@ -372,17 +372,17 @@ function civilPanels(): { title: string; groups: RibbonGroup[] }[] {
           id: 'profile-view',
           label: 'Profile View',
           items: [
-            { label: 'Create Profile View', hint: 'Station versus elevation', command: 'CREATEPROFILEVIEW', run: () => runCommand('CREATEPROFILEVIEW') },
+            { label: 'Create Profile View', hint: 'Pick a point on the plan', command: 'CREATEPROFILEVIEW', run: () => runCommand('CREATEPROFILEVIEW') },
             command('CREATEMULTIPLEPROFILEVIEW'),
           ],
         },
-        { id: 'sample-lines', label: 'Sample Lines', items: [{ label: 'Sample Lines', hint: 'Lines perpendicular to the alignment', command: 'CREATESAMPLELINES', run: () => runCommand('CREATESAMPLELINES') }] },
+        { id: 'sample-lines', label: 'Sample Lines', items: [{ label: 'Sample Lines', hint: 'Click the alignment. Esc cancels.', command: 'CREATESAMPLELINES', run: () => runCommand('CREATESAMPLELINES') }] },
         {
           id: 'sections',
           label: 'Section Views',
           items: [
-            { label: 'Create Section View', hint: 'One station at a time', command: 'CREATESECTIONVIEW', run: () => runCommand('CREATESECTIONVIEW') },
-            { label: 'Create Multiple Section Views', hint: 'Every sample line', command: 'CREATEMULTIPLESECTIONVIEW', run: () => runCommand('CREATEMULTIPLESECTIONVIEW') },
+            { label: 'Create Section View', hint: 'Pick a point on the plan', command: 'CREATESECTIONVIEW', run: () => runCommand('CREATESECTIONVIEW') },
+            { label: 'Create Multiple Section Views', hint: 'Pick a point. Every sample line is drawn from there.', command: 'CREATEMULTIPLESECTIONVIEW', run: () => runCommand('CREATEMULTIPLESECTIONVIEW') },
           ],
         },
         { id: 'bands', label: 'Data Bands', items: [command('ADDPROFILEVIEWBANDS')] },

@@ -17,7 +17,7 @@ import {
   zoomSelection,
 } from '../commands/runtime';
 import { onUi, requestUi, type UiRequest } from '../lib/uiBus';
-import { DWG_SETTINGS, FILE_ATTACH, FILE_EXPORT, FILE_IMPORT, type FileMenuAction } from './fileMenu';
+import { FILE_ATTACH, FILE_EXPORT, FILE_IMPORT, type FileMenuAction } from './fileMenu';
 import { detachXref, getXrefDoc, reloadXref, subscribeXrefs, updateXrefs } from '../engine/xref';
 import { desktopAvailable, desktopOpenPath } from '../lib/desktopFiles';
 import { recentFiles } from '../lib/recentFiles';
@@ -90,7 +90,6 @@ export function MenuBar() {
           ))}
         </Sub>
         <Item label={FILE_ATTACH.label} onClick={() => go(() => runAction(FILE_ATTACH))} />
-        <Item label={DWG_SETTINGS.label} title={DWG_SETTINGS.title} onClick={() => go(() => runAction(DWG_SETTINGS))} />
         <Sep />
         <Item label="Save" shortcut="Ctrl+S" onClick={() => go(() => runCommand('QSAVE'))} />
         <Item label="Save As…" shortcut="Ctrl+Shift+S" onClick={() => go(() => runCommand('SAVEAS'))} />
@@ -343,7 +342,7 @@ function AboutDialog({ onClose }: { onClose: () => void }) {
         <div className="modal-body">
           <p>{INDEPENDENCE}</p>
           <p>Terrain surfaces. After this page loads, it keeps working with no network.</p>
-          <p>LibreDWG reads and writes DWG offline in the browser and on the desktop. DWG 2000 and DWG 2004 need no other program. DWG 2007 and later use ODA File Converter when it is installed.</p>
+          <p>Drawing interchange is DXF. The reader and writer live in this app and do not use a paid CAD engine.</p>
           <p>{COPYRIGHT}</p>
           <p>{COPYRIGHT_NOTE}</p>
         </div>

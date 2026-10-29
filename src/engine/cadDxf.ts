@@ -1,3 +1,4 @@
+import { DXF_RELEASE } from './formats/dxfDoc';
 import { blockLocalEntities } from './blocks';
 import type { CadLibrary } from './cadLibrary';
 import { entityPath, parseStoredEntity, type DrawEntity, type DrawingDoc, type Vec3 } from './drafting';
@@ -18,7 +19,7 @@ function layerName(entity: DrawEntity): string {
 /** DXF R2000 of the plan drawing. Contours and TIN keep their own writers. */
 export function drawingToDxf(doc: DrawingDoc, unit: 'm' | 'ft' = 'm'): string {
   const insunits = unit === 'ft' ? 2 : 6;
-  let body = pair(0, 'SECTION') + pair(2, 'HEADER') + pair(9, '$ACADVER') + pair(1, 'AC1015') + pair(9, '$INSUNITS') + pair(70, insunits) + pair(0, 'ENDSEC');
+  let body = pair(0, 'SECTION') + pair(2, 'HEADER') + pair(9, '$ACADVER') + pair(1, DXF_RELEASE) + pair(9, '$INSUNITS') + pair(70, insunits) + pair(0, 'ENDSEC');
   const layers = doc.layers.length > 0 ? doc.layers : [{ name: '0', color: '#e8eef7' }];
   body += pair(0, 'SECTION') + pair(2, 'TABLES') + pair(0, 'TABLE') + pair(2, 'LAYER') + pair(70, layers.length);
   for (const layer of layers) {
@@ -60,8 +61,20 @@ function entityDxf(entity: DrawEntity): string {
     return pair(0, kind) + pair(8, layer) + pair(10, num(p.x)) + pair(20, num(p.y)) + pair(30, num(p.z)) + pair(40, num(entity.height)) + pair(1, text.replace(/\n/g, '\\P'));
   }
   if (entity.type === 'polyline' || entity.type === 'revcloud') {
+    const varyingZ = entity.vertices.some((vertex) => Math.abs(vertex.z - (entity.vertices[0]?.z ?? 0)) > 1e-6);
+    const as3d = entity.type === 'polyline' && (entity.poly3d || varyingZ);
+    if (as3d) {
+      let out = pair(0, 'POLYLINE') + pair(8, layer) + pair(70, (entity.closed ? 1 : 0) + 8) + pair(66, 1);
+      for (const vertex of entity.vertices) {
+        out += pair(0, 'VERTEX') + pair(8, layer) + pair(10, num(vertex.x)) + pair(20, num(vertex.y)) + pair(30, num(vertex.z));
+        if (vertex.bulge) out += pair(42, num(vertex.bulge));
+      }
+      return out + pair(0, 'SEQEND') + pair(8, layer);
+    }
     let out = pair(0, 'LWPOLYLINE') + pair(8, layer) + pair(90, entity.vertices.length) + pair(70, entity.closed ? 1 : 0);
     if (entity.type === 'polyline' && entity.width) out += pair(43, num(entity.width));
+    const elevation = entity.vertices[0]?.z ?? 0;
+    if (elevation) out += pair(38, num(elevation));
     for (const vertex of entity.vertices) {
       out += pair(10, num(vertex.x)) + pair(20, num(vertex.y)) + pair(42, num(vertex.bulge));
     }

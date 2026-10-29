@@ -18,6 +18,8 @@ export interface CadHost {
   createDesignProfile(): void;
   createSampleLines(): void;
   showSections(layout: 'single' | 'multiple'): void;
+  /** Ask for a plan click, then insert the profile, section, or sample lines. */
+  beginPlacedView(kind: 'profile' | 'section' | 'sections' | 'samples'): void;
   toggleContours(): void;
   showComingSoon(name: string, panel: string): void;
   /** Open the same command the Home ribbon uses. */

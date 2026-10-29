@@ -13,10 +13,7 @@ import { heavyBinary, heavyText, readDemOffThread, readDxfOffThread, readGeoTiff
 import { poolAvailable, resizePool } from './engine/pool';
 import { subscribeTasks, taskSnapshot, tasks } from './engine/tasks';
 import type { TaskHandle } from './engine/tasks';
-import { bindHost, getCommandSnapshot, getDrawingModel, importDrawing, importDxf, importDwgModel, installDrawingHistory, postMessage, reportLine, runCommand, subscribeCommandUi, syncToolPrompt } from './commands/runtime';
-import { ODA_DOWNLOAD_URL } from './engine/formats/dwg';
-import { openDwg, saveDwg } from './engine/formats/dwgEngine';
-import { DwgSettingsDialog } from './components/DwgSettingsDialog';
+import { bindHost, getCommandSnapshot, getDrawingModel, importDrawing, importDxf, installDrawingHistory, postMessage, reportLine, runCommand, subscribeCommandUi, syncToolPrompt } from './commands/runtime';
 import { CommandLine } from './components/CommandLine';
 import { LayerChrome, LwDisplayButton } from './components/LayerChrome';
 import { MenuBar } from './components/MenuBar';
@@ -41,7 +38,7 @@ import { APP_TITLE, COPYRIGHT, COPYRIGHT_NOTE } from './brand';
 import { downloadBytes, downloadText } from './lib/download';
 import { DXF_BULK_BYTES, parseDxfFile } from './engine/formats/dxfStream';
 import { desktopAvailable, desktopFileSize, desktopOpen, desktopReadDxf, desktopReadPath, desktopSave, desktopTakeLaunchPath, desktopWatch, onDesktopOpenPaths, onDesktopXrefChanged } from './lib/desktopFiles';
-import { OPEN_ACCEPT, saveFilters } from './lib/openFiles';
+import { OPEN_ACCEPT } from './lib/openFiles';
 import { rememberRecent } from './lib/recentFiles';
 import { onUi } from './lib/uiBus';
 import { chromeMetrics, PALETTE_WIDTH } from './view/chromeLayout';
@@ -76,7 +73,6 @@ function Shell() {
   inspectorRef.current = (open: boolean) => patchChrome({ properties: open });
   const [importFile, setImportFile] = useState<{ name: string; text: string } | null>(null);
   const [meshDialog, setMeshDialog] = useState<null | 'create' | 'section'>(null);
-  const [dwgSettings, setDwgSettings] = useState(false);
   const units = unitLabels(project.state.unit);
   const ingestRef = useRef<(name: string, bytes: Uint8Array) => void>(() => {});
 
@@ -112,6 +108,7 @@ function Shell() {
       createDesignProfile: () => projectRef.current.createDesignProfile(),
       createSampleLines: () => projectRef.current.createSampleLines(),
       showSections: (layout) => projectRef.current.showSections(layout),
+      beginPlacedView: (kind) => projectRef.current.beginPlacedView(kind),
       toggleContours: () => projectRef.current.toggleContours(),
       showComingSoon: () => {},
       openCivilCommand: (command) => projectRef.current.openCommand(command),
@@ -360,7 +357,7 @@ function Shell() {
       return;
     }
     if (classified.kind === 'dwg') {
-      withBusy(`Reading DWG "${stem}"`, true, () => openDwg(name, bytes), (imported) => importDwgModel(imported), 'Could not read that DWG.');
+      window.alert(classified.reason ?? 'Use DXF for drawing interchange.');
       return;
     }
     if (classified.kind === 'project') {
@@ -472,33 +469,7 @@ function Shell() {
         layers: drawing.drawing?.layers ?? [],
       };
     } else if (classified.kind === 'dwg') {
-      void openDwg(name, bytes)
-        .then((imported) => {
-          updateXrefs((doc) =>
-            attachXref(doc, {
-              name: name.replace(/\.[^.]+$/, '') || name,
-              kind: 'dwg',
-              savedPath: path,
-              pathType: path.includes('/') || path.includes('\\') ? 'full' : 'relative',
-              snapshot: {
-                entities: imported.entities,
-                layers: imported.layers.map((layer) => ({
-                  name: layer.name,
-                  color: layer.color,
-                  visible: layer.visible,
-                  locked: layer.locked,
-                  lineType: layer.lineType,
-                })),
-              },
-              size: bytes.length,
-            }),
-          );
-          patchChrome({ xrefs: true });
-          if (path !== name) void desktopWatch(path);
-        })
-        .catch((error: unknown) => {
-          window.alert(error instanceof Error ? error.message : 'Could not read that DWG.');
-        });
+      window.alert(classified.reason ?? 'Attach a DXF or Civil Design drawing. Images use Image.');
       return;
     } else {
       window.alert('Attach a DXF or Civil Design drawing. Images use Image.');
@@ -638,10 +609,6 @@ function Shell() {
       }, 400);
       return;
     }
-    if (request === 'dwg-settings') {
-      setDwgSettings(true);
-      return;
-    }
     if (request === 'xref-attach' || request === 'image-attach') {
       void (async () => {
         if (desktopAvailable()) {
@@ -669,7 +636,28 @@ function Shell() {
             c: active.points[triangle[2]],
           }))
         : [];
-      downloadText(`${slug}.dxf`, drawingToDxf({ entities: doc.entities, faces, layers: doc.layers.map((layer) => layer.name) }, current.state.unit), 'application/dxf');
+      downloadText(
+        `${slug}.dxf`,
+        drawingToDxf(
+          {
+            entities: doc.entities,
+            faces,
+            layers: doc.layers.map((layer) => layer.name),
+            layerRecords: doc.layers.map((layer) => ({
+              name: layer.name,
+              color: layer.color,
+              colorIndex: layer.colorIndex ?? 7,
+              lineType: layer.lineType,
+              lineWeight: layer.lineWeight,
+              frozen: layer.frozen,
+              locked: layer.locked,
+              visible: layer.visible,
+            })),
+          },
+          current.state.unit,
+        ),
+        'application/dxf',
+      );
     }
     if (request === 'export-landxml') {
       downloadText(
@@ -695,41 +683,6 @@ function Shell() {
       else downloadText(`${slug}-points.csv`, pointsToText(active.points, 'PNEZD', ','), 'text/csv');
     }
     if (request === 'export-svg') downloadText(`${slug}.svg`, drawingToSvg(getDrawingModel().doc.entities), 'image/svg+xml');
-    if (request === 'export-dwg') {
-      const doc = getDrawingModel().doc;
-      const faces = active
-        ? active.triangles.map((triangle) => ({
-            a: active.points[triangle[0]],
-            b: active.points[triangle[1]],
-            c: active.points[triangle[2]],
-          }))
-        : [];
-      const task = tasks.start({ command: 'DXFOUT', title: `Writing DWG "${current.state.name}"`, stages: ['Writing'], blocksInput: true });
-      void saveDwg(
-        { entities: doc.entities, faces, layers: doc.layers.map((layer) => layer.name), layerRecords: doc.layers.map((layer) => ({ name: layer.name, color: layer.color, colorIndex: layer.colorIndex ?? 7, lineType: layer.lineType, lineWeight: layer.lineWeight, frozen: layer.frozen, locked: layer.locked, visible: layer.visible })) },
-        current.state.unit,
-      )
-        .then((saved) => {
-          task.finish();
-          postMessage(saved.note);
-          const name = `${slug}.${saved.extension}`;
-          const mime = saved.extension === 'dwg' ? 'image/vnd.dwg' : 'application/dxf';
-          const warn = saved.extension === 'dxf' || saved.note.includes(ODA_DOWNLOAD_URL);
-          if (desktopAvailable()) {
-            void desktopSave(name, saved.bytes, saveFilters(saved.extension)).then((result) => {
-              if (result === 'failed') downloadBytes(name, saved.bytes, mime);
-              if (warn) window.alert(saved.note);
-            });
-            return;
-          }
-          downloadBytes(name, saved.bytes, mime);
-          if (warn) window.alert(saved.note);
-        })
-        .catch((error: unknown) => {
-          task.finish();
-          window.alert(error instanceof Error ? error.message : 'Could not write that DWG.');
-        });
-    }
     if (request === 'export-obj' || request === 'export-stl' || request === 'export-gltf') {
       if (!active) postMessage('No surface to export.');
       else if (request === 'export-obj') downloadText(`${slug}.obj`, surfaceToObj(active.points, active.triangles), 'model/obj');
@@ -1007,7 +960,7 @@ function Shell() {
         id="xref-file"
         className="hidden-input"
         type="file"
-        accept=".dxf,.dwg,.dwt,.json,.fieldline"
+        accept=".dxf,.json,.fieldline"
         onChange={(event) => {
           const file = event.target.files?.[0];
           event.target.value = '';
@@ -1040,7 +993,6 @@ function Shell() {
       />
       {meshDialog === 'create' && <MeshCreateDialog onClose={() => setMeshDialog(null)} />}
       {meshDialog === 'section' && <MeshSectionDialog onClose={() => setMeshDialog(null)} />}
-      {dwgSettings && <DwgSettingsDialog onClose={() => setDwgSettings(false)} />}
       {importFile && (
         <ImportDialog
           filename={importFile.name}

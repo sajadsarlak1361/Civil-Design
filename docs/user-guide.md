@@ -10,12 +10,11 @@ The shell is a menu bar, a ribbon, the drawing, a command line, and palettes. Co
 | --- | --- |
 | New | `NEW`. Starts a project. Ctrl+N. |
 | Open | `OPEN`. One picker for the project and the import formats. Ctrl+O. |
-| Import | Points, LandXML, DXF, DWG / DWT, DEM / GeoTIFF, LAS, shapefile, image, OBJ, STL, glTF. LAZ runs `LASZIP`: the command line explains the missing decompressor, then the file dialog opens. |
-| Attach | `XATTACH`. Attach a DXF, DWG, or Civil Design drawing as an xref. |
-| DWG Settings | Engine Auto, LibreDWG, or ODA, the ODA path, and the save version. LibreDWG writes DWG 2000 and DWG 2004 with no other program. Newer versions use ODA File Converter when it is installed. |
+| Import | Points, LandXML, DXF, DEM / GeoTIFF, LAS, shapefile, image, OBJ, STL, glTF. LAZ runs `LASZIP`: the command line explains the missing decompressor, then the file dialog opens. |
+| Attach | `XATTACH`. Attach a DXF or Civil Design drawing as an xref. |
 | Save | `QSAVE`. Project JSON. Ctrl+S. |
 | Save As | `SAVEAS`. The same project save. Ctrl+Shift+S. On the desktop the filter is `.fieldline`. |
-| Export | DXF, DWG, LandXML, points CSV, PDF, PNG, SVG, OBJ, STL, glTF, volume CSV. LAZ runs `LASZIP`, same as Import. Export → DWG writes a DWG file offline. See [file-formats.md](file-formats.md). |
+| Export | DXF, LandXML, points CSV, PDF, PNG, SVG, OBJ, STL, glTF, volume CSV. LAZ runs `LASZIP`, same as Import. DXF is the drawing interchange. See [file-formats.md](file-formats.md). |
 | Recent Files | Names remembered locally. A stored path reopens on the desktop. A name without a path runs `OPEN` and asks you to choose that file. An empty list is an Open item. |
 | Close, Exit | `QUIT`. In the browser the command line says to close the tab. |
 
@@ -56,7 +55,7 @@ The shell is a menu bar, a ribbon, the drawing, a command line, and palettes. Co
 
 ### Help
 
-Command List runs `HELP` (also F1 and `?`). About shows the version, the independent-product line, the copyright line, and the LibreDWG note.
+Command List runs `HELP` (also F1 and `?`). About shows the version, the independent-product line, the copyright line, and the DXF interchange note.
 
 ## Ribbon
 
@@ -91,7 +90,7 @@ On a narrow window, full mode collapses the right-hand panels to their titles. T
 | --- | --- |
 | Block | The same block tools as Home. |
 | Reference | Xrefs (`XREF`), Attach (`XATTACH`), Clip (`XCLIP`), Bind (`XBIND`). |
-| Import | The File → Import list, plus DWG Settings. |
+| Import | The File → Import list. DXF is the drawing entry. |
 | Point Cloud | 3D Mesh (`CREATE3DMESH`) and Mesh Section (`MESHSECTION`). See [tunnel-sections.md](tunnel-sections.md). |
 
 The xref palette attaches, overlays, detaches, unloads, reloads, binds, and inserts. Path type is full, relative, or none. Clip is a rectangle or a polygon, and it can be inverted. Bind renames layers to `Name$0$Layer`. Insert keeps the layer name. Reload keeps layer overrides (VISRETAIN). A nested overlay is not drawn in the host. A nested attach is drawn while its parents are loaded. On the desktop, the shell watches the saved path and can mark the xref as needing a reload.
@@ -138,7 +137,7 @@ Each of these opens a dialog. Set the values, then Run.
 | Alignment | `CREATEALIGNMENTENTITIES` | An alignment from a plan polyline or the active surface boundary. |
 | Alignment | `CREATEOFFSETALIGNMENT` | A constant offset. Positive is to the right. The offset is stored as its own PIs and does not follow later edits of the parent. |
 | Alignment | `CALCULATESUPERELEVATION` | An AASHTO diagram. The corridor uses those slopes on the lanes. |
-| Profile | `CREATEPROFILEFROMSURFACE` | Sample the active TIN along the alignment and open the profile view. |
+| Profile | `CREATEPROFILEFROMSURFACE` | Sample the active TIN along the alignment, then pick where the profile view goes on the plan. |
 | Profile | `CREATEPROFILELAYOUT` | A symmetric parabolic vertical curve, one unit above the active surface at mid-station. |
 | Profile | `CREATEPROFILEFROMCORRIDOR` | Copy a corridor feature-line code onto the design profile. |
 | Corridor | `CREATECORRIDOR` | An assembly along the alignment and profile. Reports cut, fill, pavement, and shoulder, and writes a corridor surface. |
@@ -153,11 +152,15 @@ Pipe Network and Pressure Network are omitted while `features.pipeNetworks` is f
 | Group | Command |
 | --- | --- |
 | Profile View | `CREATEPROFILEVIEW`, `CREATEMULTIPLEPROFILEVIEW` (split the profile into station sheets) |
-| Sample Lines | `CREATESAMPLELINES`. Lines perpendicular to the alignment. Positive offset is to the right of increasing station. |
-| Section Views | `CREATESECTIONVIEW` (one station), `CREATEMULTIPLESECTIONVIEW` (every sample line on one sheet) |
+| Sample Lines | `CREATESAMPLELINES`. Click the alignment. Lines stay perpendicular to it. Positive offset is to the right of increasing station. Esc places nothing. |
+| Section Views | `CREATESECTIONVIEW` (one station), `CREATEMULTIPLESECTIONVIEW` (every sample line) |
 | Data Bands | `ADDPROFILEVIEWBANDS`. Station, elevation, and geometry bands. |
 | Superimpose | `SUPERIMPOSEPROFILE`. Project an offset profile onto this view. |
 | Quick Profile | `CREATEQUICKPROFILE`. A profile across a surface without an alignment. |
+
+Each of these asks for an insertion point on the plan. The graph is drawn at that world point, so the plan and the profile or section sit in one drawing. Esc cancels and places nothing. Sample lines are the exception: the click chooses the alignment, and the lines stay on that alignment.
+
+The profile and section panes are still available from the View menu. Creating a view does not jump to those panes.
 
 These section views sample TIN surfaces along an alignment. Tunnel sections through a 3D mesh are `MESHSECTION`, documented in [tunnel-sections.md](tunnel-sections.md).
 

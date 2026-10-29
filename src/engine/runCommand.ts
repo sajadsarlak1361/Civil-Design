@@ -52,6 +52,8 @@ export interface CommandResult {
   activeAlignmentId?: string | null;
   addSurfaces: BuiltSurface[];
   view?: 'plan' | 'profile' | 'section';
+  /** When set, the view is inserted at a plan click instead of switching panes. */
+  placeView?: 'profile' | 'section' | 'sections' | 'samples';
   profileBands?: boolean;
   profileSheetLength?: number | null;
   profileSheetOverlap?: number;
@@ -241,7 +243,7 @@ export function runCivilCommand(command: string, args: CommandArgs, ctx: Command
     case 'CREATEMULTIPLEPROFILEVIEW':
       return multipleViews(args, ctx, alignment);
     case 'ADDPROFILEVIEWBANDS':
-      return { ok: true, status: 'Profile data bands are on.', summary: 'Station, elevation, and horizontal geometry bands sit under the profile.', civil, alignments: ctx.alignments, addSurfaces: [], view: 'profile', profileBands: true, diagram: 'profile' };
+      return { ok: true, status: 'Specify profile view insertion point', summary: 'Station, elevation, and geometry bands are drawn under the profile.', civil, alignments: ctx.alignments, addSurfaces: [], placeView: 'profile', profileBands: true, diagram: 'profile' };
     case 'SUPERIMPOSEPROFILE':
       return superimpose(args, ctx, surface, alignment);
     case 'CREATEQUICKPROFILE':
@@ -709,7 +711,7 @@ function profileFromCorridorCommand(args: CommandArgs, ctx: CommandContext, civi
     alignments: replaceAlignment(ctx.alignments, { ...target, designProfile }),
     activeAlignmentId: target.id,
     addSurfaces: [],
-    view: 'profile',
+    placeView: 'profile',
     diagram: 'profile',
   };
 }
@@ -903,12 +905,12 @@ function multipleViews(args: CommandArgs, ctx: CommandContext, alignment: Alignm
   return {
     ok: true,
     status: `${sheets} profile sheet${sheets === 1 ? '' : 's'} of ${length}.`,
-    summary: `Sheet length ${length}, overlap ${overlap}. Use the arrows on the profile to move between sheets.`,
+    summary: `Sheet length ${length}, overlap ${overlap}. Pick where the sheets go on the plan.`,
     civil: ctx.civil,
     alignments: ctx.alignments,
     activeAlignmentId: alignment.id,
     addSurfaces: [],
-    view: 'profile',
+    placeView: 'profile',
     profileSheetLength: length,
     profileSheetOverlap: overlap,
     diagram: 'profile',
@@ -940,7 +942,7 @@ function superimpose(args: CommandArgs, ctx: CommandContext, surface: SurfaceRec
     alignments: [...ctx.alignments, record],
     activeAlignmentId: alignment.id,
     addSurfaces: [],
-    view: 'profile',
+    placeView: 'profile',
     diagram: 'profile',
     superimposed: { name: record.name, color: '#8fd0b3', samples },
   };
@@ -948,7 +950,7 @@ function superimpose(args: CommandArgs, ctx: CommandContext, surface: SurfaceRec
 
 function runQuickProfile(args: CommandArgs, ctx: CommandContext, surface: SurfaceRecord | null): CommandResult {
   if (text(args, 'mode', 'across') === 'draw') {
-    return { ok: true, status: 'Quick profile · click a line, Enter to open it.', summary: 'Click two or more points, then Enter.', civil: ctx.civil, alignments: ctx.alignments, addSurfaces: [], tool: 'quickprofile', view: 'plan' };
+    return { ok: true, status: 'Quick profile · click a line, Enter, then pick the insertion point.', summary: 'Click two or more points, then Enter.', civil: ctx.civil, alignments: ctx.alignments, addSurfaces: [], tool: 'quickprofile', view: 'plan' };
   }
   if (!surface) return fail(ctx, 'Quick profile needs a surface.');
   const bounds = boundsOf(surface.points);
@@ -974,7 +976,7 @@ function runQuickProfile(args: CommandArgs, ctx: CommandContext, surface: Surfac
     alignments: [...withoutOld, record],
     activeAlignmentId: record.id,
     addSurfaces: [],
-    view: 'profile',
+    placeView: 'profile',
     diagram: 'profile',
   };
 }
@@ -1027,7 +1029,7 @@ export function commitPlanDraft(tool: string, draft: Vec2[], ctx: CommandContext
       activeAlignmentId: record.id,
       addSurfaces: [],
       tool: 'pan',
-      view: 'profile',
+      placeView: 'profile',
       diagram: 'profile',
     };
   }
