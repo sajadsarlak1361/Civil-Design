@@ -16,6 +16,7 @@ export type UiRequest =
   | 'export-obj'
   | 'export-stl'
   | 'export-gltf'
+  | 'export-ply'
   | 'export-volume'
   | 'links'
   | 'render';

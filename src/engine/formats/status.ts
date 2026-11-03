@@ -28,6 +28,14 @@ export const FORMAT_CATALOG: FormatStatus[] = [
   { id: 'obj', label: 'OBJ', extensions: '.obj', read: 'yes', write: 'yes', note: 'Triangle mesh, easting / northing / elevation.' },
   { id: 'stl', label: 'STL', extensions: '.stl', read: 'yes', write: 'yes', note: 'ASCII STL triangles.' },
   { id: 'gltf', label: 'glTF', extensions: '.gltf', read: 'yes', write: 'yes', note: 'glTF 2.0, Y-up, geometry embedded in the file.' },
+  {
+    id: 'ply',
+    label: 'PLY',
+    extensions: '.ply',
+    read: 'yes',
+    write: 'yes',
+    note: 'ASCII, binary little-endian, and binary big-endian. Vertices and polygon faces. Extra vertex properties are skipped. Triangle strips are not expanded. Save and Export write ASCII so coordinates keep full precision.',
+  },
 ];
 
 export function formatById(id: string): FormatStatus | undefined {

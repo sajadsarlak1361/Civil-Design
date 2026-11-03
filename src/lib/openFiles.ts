@@ -19,6 +19,7 @@ export const OPEN_EXTENSIONS = [
   'obj',
   'stl',
   'gltf',
+  'ply',
 ] as const;
 
 export type OpenExtension = (typeof OPEN_EXTENSIONS)[number];
@@ -41,12 +42,15 @@ export const OPEN_FILTERS: DialogFilter[] = [
   { name: 'Civil Design', extensions: ['fieldline', 'json'] },
   { name: 'LandXML', extensions: ['xml', 'landxml'] },
   { name: 'Points', extensions: ['csv', 'txt', 'xyz', 'asc'] },
-  { name: 'Mesh', extensions: ['obj', 'stl', 'gltf'] },
+  { name: 'Mesh', extensions: ['obj', 'stl', 'gltf', 'ply'] },
   { name: 'Raster', extensions: ['tif', 'tiff', 'las', 'shp', 'png', 'jpg', 'jpeg'] },
   { name: 'All files', extensions: ['*'] },
 ];
 
 export const PROJECT_FILTERS: DialogFilter[] = [{ name: 'Civil Design', extensions: ['fieldline', 'json'] }];
+
+/** Save and Save As. The project filter stays first so a plain save still writes the project. */
+export const SAVE_DIALOG_FILTERS: DialogFilter[] = [...PROJECT_FILTERS, { name: 'Stanford PLY', extensions: ['ply'] }];
 
 export function saveFilters(extension: string): DialogFilter[] {
   const ext = extension.replace(/^\./, '').toLowerCase();

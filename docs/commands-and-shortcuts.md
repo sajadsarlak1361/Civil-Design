@@ -127,10 +127,10 @@ Menu labels that look like shortcuts and are typed aliases, not keys: Redraw is 
 | `ALIASEDIT` | Edit user command aliases |
 | `NEW` | Start a new project |
 | `OPEN` | Open a Civil Design project |
-| `SAVE` | Save the project JSON |
-| `QSAVE` | Save the project JSON |
-| `SAVEAS` | Save the project JSON |
-| `EXPORT` | Export contours, triangles, LandXML, a volume report, a mesh, or section report |
+| `SAVE` | Save the project, or PLY when that filter is chosen |
+| `QSAVE` | Save the project, or PLY when that filter is chosen |
+| `SAVEAS` | Save the project, or PLY when that filter is chosen |
+| `EXPORT` | Export contours, triangles, LandXML, a volume report, OBJ, STL, PLY, or a section report |
 | `QUIT` | Leave Civil Design |
 | `COPYCLIP` | Copy the selection to the clipboard |
 | `CUTCLIP` | Cut the selection to the clipboard |

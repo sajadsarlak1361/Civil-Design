@@ -53,6 +53,13 @@
         "role": "Editor"
       },
       {
+        "ext": ["ply"],
+        "name": "Stanford PLY",
+        "description": "Stanford PLY mesh or point cloud",
+        "mimeType": "application/ply",
+        "role": "Editor"
+      },
+      {
         "ext": ["dwg", "dwt"],
         "name": "DWG drawing",
         "description": "DWG drawing",

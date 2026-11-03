@@ -22,6 +22,7 @@ export const FILE_IMPORT: FileMenuAction[] = [
   { id: 'obj', label: 'OBJ…', command: 'OPEN' },
   { id: 'stl', label: 'STL…', command: 'OPEN' },
   { id: 'gltf', label: 'glTF…', command: 'OPEN' },
+  { id: 'ply', label: 'PLY…', command: 'OPEN', title: 'Stanford PLY. Points and triangle meshes, ASCII or binary.' },
   { id: 'laz', label: 'LAZ', command: 'LASZIP', title: LAZ_REASON },
 ];
 
@@ -45,6 +46,7 @@ export const FILE_EXPORT: FileMenuAction[] = [
   { id: 'obj', label: 'OBJ…', request: 'export-obj' },
   { id: 'stl', label: 'STL…', request: 'export-stl' },
   { id: 'gltf', label: 'glTF…', request: 'export-gltf' },
+  { id: 'ply', label: 'PLY…', request: 'export-ply', title: 'Stanford PLY. The selected surface, or the active surface.' },
   { id: 'volume', label: 'Volume CSV…', request: 'export-volume' },
   { id: 'laz', label: 'LAZ', command: 'LASZIP', title: LAZ_REASON },
 ];

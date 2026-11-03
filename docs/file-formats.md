@@ -20,13 +20,13 @@ File → Import and File → Export list the formats Civil Design reads or write
 | OBJ | `.obj` | yes | yes | Triangle mesh. Coordinates are easting, northing, elevation. |
 | STL | `.stl` | yes | yes | ASCII STL triangles. |
 | glTF | `.gltf` | yes | yes | glTF 2.0, Y-up, geometry kept inside the file. |
-| PLY | | | yes | `EXPORT` can write a mesh as PLY. There is no PLY import row. |
+| PLY | `.ply` | yes | yes | ASCII, binary little-endian, and binary big-endian. Save and Export write ASCII. See below. |
 
 Open accepts those extensions in one picker. The desktop filters are in `src/lib/desktopFiles.ts`. Classification is `classifyFile` in `src/engine/formats/ingest.ts`. A binary larger than 500,000 bytes, or text longer than 750,000 characters, parses on the worker pool when the pool is available.
 
 ## Project file
 
-`SAVE`, `QSAVE`, and `SAVEAS` all call `saveProject`. They write the project JSON. They do not open a DXF save dialog. `DXFOUT` is a `classic.pgp` alias of `SAVEAS`, so it saves the project too. To write a DXF, use File → Export → DXF or the `EXPORT` command.
+`SAVE`, `QSAVE`, and `SAVEAS` all call `saveProject`. They write the project JSON when the chosen name is a project file. The save dialog also lists Stanford PLY. A name that ends in `.ply` writes the selected surface when one is selected, otherwise the active surface, otherwise the first surface that has points. There is no DXF save dialog. `DXFOUT` is a `classic.pgp` alias of `SAVEAS`, so it uses that same save. To write a DXF, use File → Export → DXF or the `EXPORT` command.
 
 The unit (meters or feet) is a label for LandXML, stationing, and the volume report. Switching it does not convert stored coordinates.
 
@@ -56,4 +56,12 @@ Clouds above 200,000 points are voxel-downsampled for the 3D point display. Plan
 
 LandXML import keeps faces until you rebuild. A rebuild triangulates from the stored survey points, so a boundary edit does not bake the previous mesh into the next one.
 
-OBJ, STL, and glTF import as triangle meshes. `EXPORT` also offers contours, triangles, LandXML, a volume CSV, and a section report.
+OBJ, STL, glTF, and PLY import as triangle meshes. A PLY that has only vertices imports as survey points and is triangulated, the same way a point file is. `EXPORT` also offers contours, triangles, LandXML, a volume CSV, and a section report.
+
+## PLY
+
+File → Open and File → Import → PLY read Stanford PLY into the current project. File → Export → PLY, the `EXPORT` keyword `Ply`, and Save / Save As (when the file name ends in `.ply`) write ASCII PLY. ASCII keeps full coordinate precision. Binary float32 is read, and it can be written with `surfaceToBinaryPly`, but the menus stay on ASCII because civil coordinates often need more than seven significant digits.
+
+The reader accepts `ascii`, `binary_little_endian`, and `binary_big_endian` version 1.0. Vertices need `x`, `y`, and `z` (float or double, or an integer type). Other vertex properties — color, normal, intensity, extra scalars — are skipped. Faces are polygon lists and are fanned into triangles from the first vertex. A face-less file has no triangles. Triangle strips and edge elements are skipped, not meshed. Eight-byte integer properties are refused. Coordinates stay easting, northing, elevation.
+
+A PLY with faces becomes a mesh and keeps those triangles. A PLY with only vertices becomes a TIN.

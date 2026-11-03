@@ -1,5 +1,6 @@
 import { afterEach, describe, expect, it } from 'vitest';
-import { desktopOpen, desktopReadDxf, desktopTakeLaunchPath, onDesktopOpenPaths, onDesktopXrefChanged } from './desktopFiles';
+import { desktopOpen, desktopReadDxf, desktopSave, desktopTakeLaunchPath, onDesktopOpenPaths, onDesktopXrefChanged } from './desktopFiles';
+import { SAVE_DIALOG_FILTERS } from './openFiles';
 
 const previous = globalThis.window;
 
@@ -84,5 +85,24 @@ describe('desktop startup', () => {
     const model = await desktopReadDxf('C:\\drawings\\lines.dxf', bytes.byteLength);
     expect(model.bulk?.entityCount).toBe(1);
     expect(Array.from(model.bulk?.segments ?? [])).toEqual([1, 2, 4, 6]);
+  });
+
+  it('writes the bytes that match the chosen save path', async () => {
+    let written = '';
+    globalThis.window = {
+      __TAURI_INTERNALS__: {
+        invoke(command: string, args?: { data?: string }) {
+          if (command === 'plugin:dialog|save') return Promise.resolve('C:\\drawings\\scan.ply');
+          if (command === 'write_bytes') {
+            written = args?.data ?? '';
+            return Promise.resolve();
+          }
+          throw new Error(command);
+        },
+      },
+    } as unknown as Window & typeof globalThis;
+    const result = await desktopSave('site.fieldline', (path) => new TextEncoder().encode(path.endsWith('.ply') ? 'ply-data' : 'json'), SAVE_DIALOG_FILTERS);
+    expect(result).toBe('saved');
+    expect(atob(written)).toBe('ply-data');
   });
 });
