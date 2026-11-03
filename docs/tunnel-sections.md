@@ -13,7 +13,7 @@ Civil Design builds a 3D mesh with ball pivoting, then cuts vertical sections th
 | Field | Meaning |
 | --- | --- |
 | Name, description, layer, color, lock | Stored on the mesh. The default layer name is `MESH`. |
-| Points | A point file (XYZ or CSV), COGO points, a point group, selected drawing points, or the points of the active surface. At least three points. LAS and LAZ are refused in this dialog. |
+| Points | A point cloud (LAS, LAZ, E57, PLY, PCD, PTS, PTX, XYZ, or CSV), COGO points, a point group, selected drawing points, or the points of the active surface. At least three points. |
 | Ball radii | `auto`, or a list of positive lengths such as `0.5, 1, 2`. Auto uses 1×, 2×, and 4× the median nearest-neighbor spacing. |
 | Normals | Auto flips toward the tunnel axis when the cloud is a tube. Toward the tunnel axis and outward from the centroid are the other choices. |
 | Max edge | Drop any triangle with an edge longer than this. Empty means no limit. |

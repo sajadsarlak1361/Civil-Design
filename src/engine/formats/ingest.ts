@@ -1,6 +1,8 @@
 import { looksLikeLandXml } from '../landxml';
+import { looksLikeE57 } from './e57';
 import { looksLikeAsc, xyzIsGrid } from './grid';
-import { looksLikeLas, looksLikeLaz, LAZ_REASON } from './las';
+import { looksLikeLas, looksLikeLaz } from './las';
+import { looksLikePcd } from './pcd';
 import { looksLikePly } from './ply';
 import { looksLikeShp } from './shp';
 import { readImageInfo } from './image';
@@ -21,6 +23,10 @@ export type IngestKind =
   | 'image'
   | 'dwg'
   | 'laz'
+  | 'e57'
+  | 'pcd'
+  | 'pts'
+  | 'ptx'
   | 'obj'
   | 'stl'
   | 'gltf'
@@ -43,8 +49,12 @@ export function classifyFile(name: string, bytes: Uint8Array): { kind: IngestKin
   if (lower.endsWith('.stl')) return { kind: 'stl' };
   if (lower.endsWith('.gltf')) return { kind: 'gltf' };
   if (lower.endsWith('.ply') || looksLikePly(bytes)) return { kind: 'ply' };
-  if (looksLikeLaz(bytes, name)) return { kind: 'laz', reason: LAZ_REASON };
+  if (lower.endsWith('.e57') || looksLikeE57(bytes)) return { kind: 'e57' };
+  if (looksLikeLaz(bytes, name)) return { kind: 'laz' };
   if (looksLikeLas(bytes)) return { kind: 'las' };
+  if (lower.endsWith('.pcd') || looksLikePcd(bytes)) return { kind: 'pcd' };
+  if (lower.endsWith('.pts')) return { kind: 'pts' };
+  if (lower.endsWith('.ptx')) return { kind: 'ptx' };
   if (isTiff(bytes)) return { kind: 'geotiff' };
   if (readImageInfo(bytes)) return { kind: 'image' };
   if (looksLikeShp(bytes)) return { kind: 'shp' };

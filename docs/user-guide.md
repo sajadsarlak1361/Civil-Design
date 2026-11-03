@@ -10,11 +10,11 @@ The shell is a menu bar, a ribbon, the drawing, a command line, and palettes. Co
 | --- | --- |
 | New | `NEW`. Starts a project. Ctrl+N. |
 | Open | `OPEN`. One picker for the project and the import formats. Ctrl+O. |
-| Import | Points, LandXML, DXF, DEM / GeoTIFF, LAS, shapefile, image, OBJ, STL, glTF, PLY. LAZ runs `LASZIP`: the command line explains the missing decompressor, then the file dialog opens. |
+| Import | Points, LandXML, DXF, DEM / GeoTIFF, LAS, LAZ, E57, PCD, PTS, PTX, shapefile, image, OBJ, STL, glTF, PLY. |
 | Attach | `XATTACH`. Attach a DXF or Civil Design drawing as an xref. |
 | Save | `QSAVE`. Project JSON, or PLY when that filter is chosen. Ctrl+S. |
 | Save As | `SAVEAS`. The same save. Ctrl+Shift+S. The dialog lists the project file and Stanford PLY. A `.ply` name writes the selected or active surface. |
-| Export | DXF, LandXML, points CSV, PDF, PNG, SVG, OBJ, STL, glTF, PLY, volume CSV. LAZ runs `LASZIP`, same as Import. DXF is the drawing interchange. See [file-formats.md](file-formats.md). |
+| Export | DXF, LandXML, points CSV, points XYZ, LAS, PCD, PTS, PDF, PNG, SVG, OBJ, STL, glTF, PLY, volume CSV. LAZ, E57, and PTX are read-only. DXF is the drawing interchange. See [file-formats.md](file-formats.md). |
 | Recent Files | Names remembered locally. A stored path reopens on the desktop. A name without a path runs `OPEN` and asks you to choose that file. An empty list is an Open item. |
 | Close, Exit | `QUIT`. In the browser the command line says to close the tab. |
 

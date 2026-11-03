@@ -7,7 +7,7 @@ import { gridToAsc, gridToPoints, gridToXyz, parseAsc, parseXyzGrid, xyzIsGrid, 
 import { readGeoTiff, writeGeoTiff } from './formats/geotiff';
 import { readImageInfo, writeJpeg, writePng } from './formats/image';
 import { classifyFile } from './formats/ingest';
-import { LAZ_REASON, readLas, writeLas } from './formats/las';
+import { readLas, writeLas } from './formats/las';
 import { parseGltf, parseObj, parseStl, surfaceToGltf, surfaceToObj, surfaceToStl } from './formats/mesh';
 import { pdfToText, rgbToPdf } from './formats/plot';
 import { readShp, writeShp } from './formats/shp';
@@ -201,7 +201,7 @@ describe('rasters and point clouds', () => {
     expect(() => readGeoTiff(compressed)).toThrow(/LZW/);
   });
 
-  it('round-trips LAS 1.2 and rejects LAZ', () => {
+  it('round-trips LAS 1.2 and does not treat the software name as compression', () => {
     const points = [
       { x: 1.5, y: 2.25, z: 3, role: 'survey' as const },
       { x: -4, y: 8, z: 0.5, role: 'survey' as const },
@@ -209,10 +209,9 @@ describe('rasters and point clouds', () => {
     const las = writeLas(points);
     expect(readLas(las)[0]).toMatchObject({ x: 1.5, y: 2.25, z: 3 });
     expect(readLas(las)[1].x).toBeCloseTo(-4);
-    const laz = new Uint8Array(las);
-    const tag = new TextEncoder().encode('laszip');
-    laz.set(tag, 26);
-    expect(() => readLas(laz)).toThrow(LAZ_REASON);
+    const tagged = new Uint8Array(las);
+    tagged.set(new TextEncoder().encode('laszip'), 26);
+    expect(readLas(tagged)[0].x).toBeCloseTo(1.5);
   });
 });
 
@@ -275,7 +274,12 @@ describe('format catalog', () => {
     expect(FORMAT_CATALOG.find((row) => row.id === 'dwg')?.read).toBe('no');
     expect(FORMAT_CATALOG.find((row) => row.id === 'dwg')?.write).toBe('no');
     expect(FORMAT_CATALOG.find((row) => row.id === 'dwg')?.note).toBe(BINARY_DRAWING_NOTE);
-    expect(FORMAT_CATALOG.find((row) => row.id === 'laz')?.note).toMatch(/LAS 1\.2/);
+    expect(FORMAT_CATALOG.find((row) => row.id === 'laz')?.read).toBe('yes');
+    expect(FORMAT_CATALOG.find((row) => row.id === 'laz')?.write).toBe('no');
+    expect(FORMAT_CATALOG.find((row) => row.id === 'e57')?.read).toBe('yes');
+    expect(FORMAT_CATALOG.find((row) => row.id === 'pcd')?.read).toBe('yes');
+    expect(FORMAT_CATALOG.find((row) => row.id === 'pts')?.read).toBe('yes');
+    expect(FORMAT_CATALOG.find((row) => row.id === 'ptx')?.read).toBe('yes');
     const dwg = classifyFile('site.dwg', new Uint8Array([0]));
     expect(dwg.kind).toBe('dwg');
     expect(dwg.reason).toMatch(/DXF/);

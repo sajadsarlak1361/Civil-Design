@@ -17,6 +17,10 @@ export type UiRequest =
   | 'export-stl'
   | 'export-gltf'
   | 'export-ply'
+  | 'export-las'
+  | 'export-xyz'
+  | 'export-pcd'
+  | 'export-pts'
   | 'export-volume'
   | 'links'
   | 'render';

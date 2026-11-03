@@ -9,3 +9,7 @@ LibreDWG is free software under the GNU General Public License, version 3. Becau
 The reader module reads DWG and DWT (R14 through 2018). Civil Design also bundles a LibreDWG writer module, built from LibreDWG commit `a8ccb1f3` with the write API enabled. The project wrapper is `src/engine/formats/vendor/cd-dxf2dwg.c`. That module writes DWG 2000 and DWG 2004. The 2007 release write is known not to work in this LibreDWG, and 2010 through 2018 writes are still planned upstream.
 
 ODA File Converter is not part of Civil Design and is not covered by the GPL. It is optional, and only for those newer versions. The application shows its download address when a newer version is requested and the converter is not installed.
+
+LAZ files are decoded with [laz-perf](https://github.com/hobuinc/laz-perf) 0.0.7, Apache License 2.0. The decoder runs in the page. Civil Design does not write LAZ; it writes uncompressed LAS.
+
+E57 files are decoded with a small WebAssembly build of the [e57](https://github.com/cry-inc/e57) crate, version 0.11.7, MIT License. The wrapper and the build notes are in `src/engine/formats/vendor/e57`. Images stored inside an E57 file are not imported.

@@ -32,7 +32,6 @@ import {
   xbindLayers,
   xrefBounds,
 } from '../engine/xref';
-import { LAZ_REASON } from '../engine/formats/las';
 import { applyOrbit, applyPlan, applyPreset, applyViewportLayout } from '../view/viewCommands';
 import { getWorkspace, patchChrome, rememberActiveView, setLocomotion, setVisualStyle, type ViewPreset, type ViewportCount, type VisualStyle } from '../view/workspace';
 import { suggestCommands, type Suggestion } from './autocomplete';
@@ -854,7 +853,7 @@ function immediate(command: string, options?: { mode?: 'layout' | 'tangents' | '
       say('Links.', 'message');
       return;
     case 'LASZIP':
-      say(LAZ_REASON, 'error');
+      say('LAZ opens with File > Open.', 'message');
       cad?.openProject();
       return;
     case 'AUDIT':
@@ -1063,7 +1062,7 @@ function beginExport(): SessionResult {
     prompt: {
       head: 'Export',
       expect: 'any',
-      keywords: ['Contours', 'Triangles', 'LandXML', 'Volume', 'Obj', 'Stl', 'Ply', 'Sections'].map((label) => ({ label })),
+      keywords: ['Contours', 'Triangles', 'LandXML', 'Volume', 'Obj', 'Stl', 'Ply', 'Las', 'Xyz', 'Pcd', 'Pts', 'Sections'].map((label) => ({ label })),
       def: 'Contours',
       spaceCommits: true,
     },
@@ -1284,15 +1283,23 @@ export function submitInput(raw?: string): void {
         ? 'stl'
         : choice.startsWith('ply')
           ? 'ply'
-          : choice.startsWith('sec') || choice.startsWith('report')
-            ? 'sections'
-            : choice.startsWith('t')
-              ? 'triangles'
-              : choice.startsWith('l')
-                ? 'landxml'
-                : choice.startsWith('v')
-                  ? 'volume'
-                  : 'contours';
+          : choice.startsWith('pcd')
+            ? 'pcd'
+            : choice.startsWith('pts')
+              ? 'pts'
+              : choice.startsWith('xyz')
+                ? 'xyz'
+                : choice.startsWith('las')
+                  ? 'las'
+                  : choice.startsWith('sec') || choice.startsWith('report')
+                    ? 'sections'
+                    : choice.startsWith('t')
+                      ? 'triangles'
+                      : choice.startsWith('l')
+                        ? 'landxml'
+                        : choice.startsWith('v')
+                          ? 'volume'
+                          : 'contours';
     session = null;
     prompt = null;
     getHost()?.exportKind(kind);

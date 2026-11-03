@@ -24,7 +24,7 @@ export function stripLibredwgUrls(): Plugin {
   return {
     name: 'strip-libredwg-urls',
     transform(code, id) {
-      if (!id.includes('libredwg-web')) return null;
+      if (!id.includes('libredwg-web') && !id.includes('laz-perf')) return null;
       const next = code.replace(/https?:\/\/(?!www\.w3\.org\/)[^\s"'`)]+/g, '');
       return next === code ? null : { code: next, map: null };
     },

@@ -1,5 +1,4 @@
 import { BINARY_DRAWING_NOTE } from './ingest';
-import { LAZ_REASON } from './las';
 
 export type FormatAccess = 'yes' | 'partial' | 'no';
 
@@ -17,11 +16,15 @@ export const FORMAT_CATALOG: FormatStatus[] = [
   { id: 'dxf', label: 'DXF', extensions: '.dxf', read: 'yes', write: 'yes', note: 'ASCII and binary DXF. POINT, LINE, LWPOLYLINE, CIRCLE, ARC, TEXT, 3DFACE.' },
   { id: 'dwg', label: 'Binary drawing', extensions: '.dwg .dwt', read: 'no', write: 'no', note: BINARY_DRAWING_NOTE },
   { id: 'landxml', label: 'LandXML', extensions: '.xml .landxml', read: 'yes', write: 'yes', note: 'Surfaces, CgPoints, alignments, and profiles.' },
-  { id: 'points', label: 'Point file', extensions: '.csv .txt .xyz', read: 'yes', write: 'yes', note: 'PNEZD, PENZD, PNEZ, PENZ, NEZ, ENZ, and XYZ.' },
+  { id: 'points', label: 'Point file', extensions: '.csv .txt .xyz', read: 'yes', write: 'yes', note: 'PNEZD, PENZD, PNEZ, PENZ, NEZ, ENZ, and XYZ. A header of X Y Z may add intensity and RGB. Six or seven numeric columns are X Y Z with intensity and color.' },
   { id: 'dem', label: 'ASCII DEM', extensions: '.asc', read: 'yes', write: 'yes', note: 'ESRI ASCII grid and an XYZ grid of cell centers.' },
   { id: 'geotiff', label: 'GeoTIFF', extensions: '.tif .tiff', read: 'partial', write: 'partial', note: 'Uncompressed float32 with tie point and pixel scale. LZW, JPEG, Deflate, and PackBits are refused.' },
-  { id: 'las', label: 'LAS', extensions: '.las', read: 'yes', write: 'yes', note: 'LAS 1.2 point format 0.' },
-  { id: 'laz', label: 'LAZ', extensions: '.laz', read: 'no', write: 'no', note: LAZ_REASON },
+  { id: 'las', label: 'LAS', extensions: '.las', read: 'yes', write: 'yes', note: 'LAS 1.0 through 1.4, point formats 0 through 10. Export writes LAS 1.2 point format 0.' },
+  { id: 'laz', label: 'LAZ', extensions: '.laz', read: 'yes', write: 'no', note: 'LASzip, decoded in the browser with laz-perf. Export the cloud as LAS.' },
+  { id: 'e57', label: 'E57', extensions: '.e57', read: 'yes', write: 'no', note: 'ASTM E57 point records, Cartesian or spherical, with the scan pose applied. Images in the file are skipped. Export the cloud as LAS or XYZ.' },
+  { id: 'pcd', label: 'PCD', extensions: '.pcd', read: 'yes', write: 'yes', note: 'PCL PCD: ASCII, binary, and binary compressed. Export writes ASCII.' },
+  { id: 'pts', label: 'PTS', extensions: '.pts', read: 'yes', write: 'yes', note: 'Leica PTS. X Y Z, optional intensity and RGB, optional leading count.' },
+  { id: 'ptx', label: 'PTX', extensions: '.ptx', read: 'yes', write: 'no', note: 'Leica PTX. The registered 4x4 transform is applied. Empty 0 0 0 returns are skipped.' },
   { id: 'shp', label: 'Shapefile', extensions: '.shp', read: 'yes', write: 'yes', note: 'Point, polyline, and polygon. No .dbf attributes.' },
   { id: 'image', label: 'Image', extensions: '.png .jpg .jpeg', read: 'yes', write: 'partial', note: 'Attach reads width and height. PNG export captures the current view.' },
   { id: 'pdf', label: 'PDF', extensions: '.pdf', read: 'no', write: 'yes', note: 'Plot export is a one-page Flate RGB PDF. PDF underlay is not bundled.' },

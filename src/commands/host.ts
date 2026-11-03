@@ -28,7 +28,7 @@ export interface CadHost {
   openImport(): void;
   openProject(): void;
   saveProject(): void;
-  exportKind(kind: 'contours' | 'triangles' | 'landxml' | 'volume' | 'obj' | 'stl' | 'ply' | 'sections'): void;
+  exportKind(kind: 'contours' | 'triangles' | 'landxml' | 'volume' | 'obj' | 'stl' | 'ply' | 'las' | 'xyz' | 'pcd' | 'pts' | 'sections'): void;
   showInspector(): void;
   openMeshCreate(): void;
   openMeshSection(): void;

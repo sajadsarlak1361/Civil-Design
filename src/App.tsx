@@ -1,7 +1,11 @@
 import { useEffect, useRef, useState, useSyncExternalStore, type DragEvent, type PointerEvent as ReactPointerEvent } from 'react';
 import { contoursToDxf, generateContours, isMeshSurface, looksLikeLandXml, meshSectionCsv, meshToObj, meshToStl, surfaceToLandXml, trianglesToDxf, volumeReportCsv } from './engine';
 import { parseDxf, drawingToDxf } from './engine/formats/dxfDoc';
+import { readPointCloudFile } from './engine/formats/cloud';
 import { classifyFile } from './engine/formats/ingest';
+import { writeLas } from './engine/formats/las';
+import { pointsToPcd } from './engine/formats/pcd';
+import { pointsToPts } from './engine/formats/pts';
 import { readImageInfo } from './engine/formats/image';
 import { surfaceToGltf, surfaceToObj, surfaceToStl } from './engine/formats/mesh';
 import { choosePlyGeometry, encodePly, loadPly, PLY_STREAM_BYTES, plyMemorySource, surfaceToPly, type PlyLoad, type PlyProgress, type PlySource } from './engine/formats/ply';
@@ -10,7 +14,7 @@ import { readShp } from './engine/formats/shp';
 import { pointsToText } from './engine/points';
 import { attachXref, markNeedsReload, replaceXrefs, sampleXrefs, updateXrefs } from './engine/xref';
 import { getCpuLimit, setCpuLimit } from './engine/budget';
-import { heavyBinary, heavyText, readDemOffThread, readDxfOffThread, readGeoTiffOffThread, readLasOffThread, readMeshOffThread, readXyzGridOffThread } from './engine/importWork';
+import { heavyBinary, heavyText, readDemOffThread, readDxfOffThread, readGeoTiffOffThread, readMeshOffThread, readXyzGridOffThread } from './engine/importWork';
 import { poolAvailable, resizePool } from './engine/pool';
 import { subscribeTasks, taskSnapshot, tasks } from './engine/tasks';
 import type { TaskHandle } from './engine/tasks';
@@ -84,7 +88,7 @@ function Shell() {
   const ws = useWorkspace();
   const inspectorOpen = ws.properties;
   inspectorRef.current = (open: boolean) => patchChrome({ properties: open });
-  const [importFile, setImportFile] = useState<{ name: string; text: string } | null>(null);
+  const [importFile, setImportFile] = useState<{ name: string; text: string; format?: 'auto' | 'XYZ' } | null>(null);
   const [meshDialog, setMeshDialog] = useState<null | 'create' | 'section'>(null);
   const units = unitLabels(project.state.unit);
   const ingestRef = useRef<(name: string, bytes: Uint8Array) => void>(() => {});
@@ -227,6 +231,13 @@ function Shell() {
           const geometry = choosePlyGeometry(state.surfaces, state.activeId, getDrawingModel().doc.selection);
           if (!geometry) postMessage('No surface to export.');
           else downloadText(`${fileSlug(geometry.name)}.ply`, surfaceToPly(geometry.points, geometry.triangles), 'model/ply');
+        }
+        if (kind === 'las' || kind === 'xyz' || kind === 'pcd' || kind === 'pts') {
+          if (!active) postMessage('No surface to export.');
+          else if (kind === 'las') downloadBytes(`${fileSlug(active.name)}.las`, writeLas(active.points), 'application/vnd.las');
+          else if (kind === 'xyz') downloadText(`${fileSlug(active.name)}.xyz`, pointsToText(active.points, 'XYZ', ' '), 'text/plain');
+          else if (kind === 'pcd') downloadText(`${fileSlug(active.name)}.pcd`, pointsToPcd(active.points), 'application/octet-stream');
+          else downloadText(`${fileSlug(active.name)}.pts`, pointsToPts(active.points), 'text/plain');
         }
         if (kind === 'sections' && state.meshSections) {
           downloadText(`${fileSlug(state.name)}-sections.csv`, meshSectionCsv(state.meshSections.sections), 'text/csv');
@@ -430,10 +441,6 @@ function Shell() {
           fail(error, fallback);
         });
     };
-    if (classified.kind === 'laz') {
-      window.alert(classified.reason ?? 'That format is not available offline.');
-      return;
-    }
     if (classified.kind === 'dwg') {
       window.alert(classified.reason ?? 'Use DXF for drawing interchange.');
       return;
@@ -462,8 +469,18 @@ function Shell() {
       importDxf(parseDxf(bytes));
       return;
     }
-    if (classified.kind === 'las') {
-      withBusy(`Reading LAS "${stem}"`, heavyBinary(bytes), (task) => readLasOffThread(bytes, task), (points) => projectRef.current.addPoints(stem, points), 'Could not read that LAS file.');
+    if (classified.kind === 'las' || classified.kind === 'laz' || classified.kind === 'e57' || classified.kind === 'pcd' || classified.kind === 'pts' || classified.kind === 'ptx') {
+      const label = classified.kind.toUpperCase();
+      withBusy(
+        `Reading ${label} "${stem}"`,
+        bytes.byteLength >= 500_000,
+        (task) => readPointCloudFile(name, bytes, task),
+        (points) => {
+          if (points.length === 0) window.alert(`That ${label} file has no points.`);
+          else projectRef.current.addPoints(stem, points);
+        },
+        `Could not read that ${label} file.`,
+      );
       return;
     }
     if (classified.kind === 'dem') {
@@ -523,7 +540,7 @@ function Shell() {
       patchChrome({ xrefs: true });
       return;
     }
-    setImportFile({ name, text: textOf() });
+    setImportFile({ name, text: textOf(), format: /\.xyz$/i.test(name) ? 'XYZ' : 'auto' });
   };
   ingestRef.current = ingest;
 
@@ -804,6 +821,13 @@ function Shell() {
       const geometry = choosePlyGeometry(current.state.surfaces, current.state.activeId, getDrawingModel().doc.selection);
       if (!geometry) postMessage('No surface to export.');
       else downloadText(`${fileSlug(geometry.name)}.ply`, surfaceToPly(geometry.points, geometry.triangles), 'model/ply');
+    }
+    if (request === 'export-las' || request === 'export-xyz' || request === 'export-pcd' || request === 'export-pts') {
+      if (!active) postMessage('No surface to export.');
+      else if (request === 'export-las') downloadBytes(`${slug}.las`, writeLas(active.points), 'application/vnd.las');
+      else if (request === 'export-xyz') downloadText(`${slug}.xyz`, pointsToText(active.points, 'XYZ', ' '), 'text/plain');
+      else if (request === 'export-pcd') downloadText(`${slug}.pcd`, pointsToPcd(active.points), 'application/octet-stream');
+      else downloadText(`${slug}.pts`, pointsToPts(active.points), 'text/plain');
     }
     if (request === 'export-volume' && !current.state.volumeResult) postMessage('No volume report yet.');
     if (request === 'export-volume' && current.state.volumeResult) {
@@ -1113,6 +1137,7 @@ function Shell() {
         <ImportDialog
           filename={importFile.name}
           text={importFile.text}
+          initialFormat={importFile.format}
           onClose={() => setImportFile(null)}
           onPoints={(name, points) => {
             project.addPoints(name, points);

@@ -1,6 +1,6 @@
 # File formats
 
-File → Import and File → Export list the formats Civil Design reads or writes. A row it cannot read or write stays in the menu only when a command can explain the limit (LAZ). The binary drawing format is omitted from the menus. The catalog is `FORMAT_CATALOG` in `src/engine/formats/status.ts`.
+File → Import and File → Export list the formats Civil Design reads or writes. The binary drawing format is omitted from the menus. The catalog is `FORMAT_CATALOG` in `src/engine/formats/status.ts`.
 
 | Format | Extensions | Read | Write | What the code does |
 | --- | --- | --- | --- | --- |
@@ -8,11 +8,15 @@ File → Import and File → Export list the formats Civil Design reads or write
 | DXF | `.dxf` | yes | yes | ASCII and binary DXF. Entities: POINT, LINE, LWPOLYLINE, POLYLINE with per-vertex elevation, CIRCLE, ARC, TEXT, 3DFACE. See below. |
 | Binary drawing | `.dwg`, `.dwt` | no | no | Not offered. Use DXF. |
 | LandXML | `.xml`, `.landxml` | yes | yes | Surfaces (`Pnts` / `Faces`), CgPoints, alignments, and profiles. Export is LandXML 1.2. |
-| Point file | `.csv`, `.txt`, `.xyz` | yes | yes | PNEZD, PENZD, PNEZ, PENZ, NEZ, ENZ, and XYZ. Delimiters are comma, whitespace, or tab. |
+| Point file | `.csv`, `.txt`, `.xyz` | yes | yes | PNEZD, PENZD, PNEZ, PENZ, NEZ, ENZ, and XYZ. Delimiters are comma, whitespace, or tab. A header of X Y Z may add intensity and RGB. Six or seven numeric columns are read as X Y Z plus intensity and color. A `.xyz` name opens in the XYZ column order. |
 | ASCII DEM | `.asc` | yes | yes | ESRI ASCII grid, and an XYZ grid of cell centers. |
 | GeoTIFF | `.tif`, `.tiff` | partial | partial | Uncompressed float32 with a tie point and a pixel scale. LZW, JPEG, Deflate, and PackBits are refused. |
-| LAS | `.las` | yes | yes | LAS 1.2, point record format 0 (20 bytes). |
-| LAZ | `.laz` | no | no | The menu item explains that a decompressor is not bundled, then opens the file dialog. A `.laz` file is still refused. Export the cloud as LAS. |
+| LAS | `.las` | yes | yes | LAS 1.0 through 1.4, point formats 0 through 10. X, Y, and Z are read. Export writes LAS 1.2 point format 0. |
+| LAZ | `.laz` | yes | no | LASzip, decoded in the page with laz-perf. A `.laz` name whose bytes are plain LAS is read as LAS. Export the cloud as LAS. |
+| E57 | `.e57` | yes | no | ASTM E57 point records, Cartesian or spherical, with the scan pose applied. Images in the file are skipped. The reader is the MIT `e57` crate compiled to WebAssembly. Export the cloud as LAS or XYZ. |
+| PCD | `.pcd` | yes | yes | PCL PCD: ASCII, binary little-endian, and LZF `binary_compressed`. Export writes ASCII. |
+| PTS | `.pts` | yes | yes | Leica PTS. X Y Z, optional intensity and RGB, and an optional leading count. |
+| PTX | `.ptx` | yes | no | Leica PTX. The registered 4×4 transform is applied. An empty `0 0 0` return is skipped. |
 | Shapefile | `.shp` | yes | yes | Point, polyline, and polygon. Attributes in `.dbf` are not read. |
 | Image | `.png`, `.jpg`, `.jpeg` | yes | partial | Attach reads width and height. PNG export is the current view. |
 | PDF | `.pdf` | no | yes | One-page Flate RGB plot. A PDF underlay is not bundled. |
@@ -46,9 +50,13 @@ File → Import → DXF and File → Export → DXF are the menu entries. File �
 
 ## Point clouds
 
-File → Import → LAS reads LAS 1.2 point format 0 into survey points. File → Export can write the same record. LAZ is detected and refused, including a LAS file whose header names laszip.
+File → Open, File → Import, and a drop onto the window read the point-cloud extensions in the table above. LAS, LAZ, E57, PCD, PTS, and PTX become survey points and are triangulated. A PLY with faces stays a mesh. A PLY with only vertices becomes a TIN, the same as a point file.
 
-The 3D mesh dialog accepts XYZ or CSV. If the chosen file is `.las` or `.laz`, the dialog reports that those formats are not supported there and asks for XYZ or CSV. Import the LAS first, then build the mesh from COGO points, a point group, selected drawing points, or the active surface.
+File → Export writes LAS 1.2 point format 0, XYZ, ASCII PCD, and PTS, in addition to the points CSV and ASCII PLY that were already there. LAZ, E57, and PTX are read-only.
+
+The 3D mesh dialog reads the same clouds (LAS, LAZ, E57, PLY, PCD, PTS, PTX, XYZ, CSV, and TXT) and builds the mesh from those points. CSV and TXT in that dialog still follow the survey column rules, so a PNEZD file keeps northing and easting. A `.xyz` file is X Y Z.
+
+A name that merely contains the letters `laszip` in the software field is still an uncompressed LAS. Compression is detected from the laszip record in the header, or from a `.laz` name.
 
 Clouds above 200,000 points are voxel-downsampled for the 3D point display. Plan points keep one mark per four screen pixels.
 
