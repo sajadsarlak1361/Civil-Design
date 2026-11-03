@@ -4,13 +4,13 @@ import { parseDxf, drawingToDxf } from './engine/formats/dxfDoc';
 import { classifyFile } from './engine/formats/ingest';
 import { readImageInfo } from './engine/formats/image';
 import { surfaceToGltf, surfaceToObj, surfaceToStl } from './engine/formats/mesh';
-import { choosePlyGeometry, encodePly, surfaceToPly } from './engine/formats/ply';
+import { choosePlyGeometry, encodePly, loadPly, PLY_STREAM_BYTES, plyMemorySource, surfaceToPly, type PlyLoad, type PlyProgress, type PlySource } from './engine/formats/ply';
 import { drawingToSvg, rgbToPdf } from './engine/formats/plot';
 import { readShp } from './engine/formats/shp';
 import { pointsToText } from './engine/points';
 import { attachXref, markNeedsReload, replaceXrefs, sampleXrefs, updateXrefs } from './engine/xref';
 import { getCpuLimit, setCpuLimit } from './engine/budget';
-import { heavyBinary, heavyText, readDemOffThread, readDxfOffThread, readGeoTiffOffThread, readLasOffThread, readMeshOffThread, readPlyOffThread, readXyzGridOffThread } from './engine/importWork';
+import { heavyBinary, heavyText, readDemOffThread, readDxfOffThread, readGeoTiffOffThread, readLasOffThread, readMeshOffThread, readXyzGridOffThread } from './engine/importWork';
 import { poolAvailable, resizePool } from './engine/pool';
 import { subscribeTasks, taskSnapshot, tasks } from './engine/tasks';
 import type { TaskHandle } from './engine/tasks';
@@ -38,7 +38,7 @@ import { MeshCreateDialog, MeshSectionDialog } from './components/MeshDialogs';
 import { APP_TITLE, COPYRIGHT, COPYRIGHT_NOTE } from './brand';
 import { browserSave, downloadBytes, downloadText } from './lib/download';
 import { DXF_BULK_BYTES, parseDxfFile } from './engine/formats/dxfStream';
-import { desktopAvailable, desktopFileSize, desktopOpen, desktopReadDxf, desktopReadPath, desktopSave, desktopTakeLaunchPath, desktopWatch, onDesktopOpenPaths, onDesktopXrefChanged } from './lib/desktopFiles';
+import { desktopAvailable, desktopFileSize, desktopOpen, desktopReadDxf, desktopReadPart, desktopReadPath, desktopSave, desktopTakeLaunchPath, desktopWatch, onDesktopOpenPaths, onDesktopXrefChanged } from './lib/desktopFiles';
 import { OPEN_ACCEPT, SAVE_DIALOG_FILTERS } from './lib/openFiles';
 import { rememberRecent } from './lib/recentFiles';
 import { onUi } from './lib/uiBus';
@@ -55,6 +55,18 @@ export default function App() {
       <Shell />
     </ProjectProvider>
   );
+}
+
+function plyProgressLogger(task: TaskHandle | undefined, stem: string): (progress: PlyProgress) => void {
+  let last = 0;
+  return (progress) => {
+    task?.progress(progress.fraction);
+    const pct = Math.round((progress.fraction || 0) * 100);
+    if (pct >= 100 || pct >= last + 5) {
+      last = pct;
+      reportLine(`Reading PLY "${stem}" — ${progress.message} — ${pct}%`);
+    }
+  };
 }
 
 function Shell() {
@@ -76,6 +88,7 @@ function Shell() {
   const [meshDialog, setMeshDialog] = useState<null | 'create' | 'section'>(null);
   const units = unitLabels(project.state.unit);
   const ingestRef = useRef<(name: string, bytes: Uint8Array) => void>(() => {});
+  const openPlyRef = useRef<(path: string, byteLength: number) => void>(() => {});
 
   useEffect(() => {
     document.title = APP_TITLE;
@@ -133,6 +146,11 @@ function Shell() {
                   task.finish();
                   window.alert(error instanceof Error ? error.message : 'Could not read that DXF.');
                 }
+                return;
+              }
+              if (file?.streamPly && file.byteLength) {
+                rememberRecent(file.path || file.name);
+                openPlyRef.current(file.path, file.byteLength);
                 return;
               }
               if (file) {
@@ -354,6 +372,43 @@ function Shell() {
     }
   }, []);
 
+  const applyPly = (stem: string, mesh: PlyLoad) => {
+    if (mesh.triangles.length > 0 && mesh.points.length >= 3) projectRef.current.addImportedMesh(stem, mesh.points, mesh.triangles);
+    else if (mesh.points.length >= 3) projectRef.current.addPoints(stem, mesh.points);
+    else window.alert('That PLY has no geometry.');
+  };
+
+  const runPly = (stem: string, source: PlySource, loud: boolean) => {
+    const task = loud ? tasks.start({ command: 'OPEN', title: `Reading PLY "${stem}"`, stages: ['Reading vertices'], blocksInput: true }) : undefined;
+    void loadPly(source, {
+      signal: task?.signal,
+      yield: loud,
+      onProgress: loud ? plyProgressLogger(task, stem) : undefined,
+    })
+      .then((mesh) => {
+        if (mesh.status) reportLine(mesh.status);
+        task?.finish();
+        applyPly(stem, mesh);
+      })
+      .catch((error: unknown) => {
+        task?.finish();
+        if (error instanceof Error && error.name === 'AbortError') return;
+        window.alert(error instanceof Error ? error.message : 'Could not read that PLY.');
+      });
+  };
+  openPlyRef.current = (path, byteLength) => {
+    const name = path.split(/[\\/]/).pop() || path;
+    const stem = name.replace(/\.[^.]+$/, '') || name;
+    runPly(
+      stem,
+      {
+        byteLength,
+        read: (offset, length) => desktopReadPart(path, offset, length),
+      },
+      true,
+    );
+  };
+
   const ingest = (name: string, bytes: Uint8Array) => {
     rememberRecent(name);
     const classified = classifyFile(name, bytes);
@@ -426,17 +481,7 @@ function Shell() {
       return;
     }
     if (classified.kind === 'ply') {
-      withBusy(
-        `Reading PLY "${stem}"`,
-        heavyBinary(bytes),
-        (task) => readPlyOffThread(bytes, task),
-        (mesh) => {
-          if (mesh.triangles.length > 0 && mesh.points.length >= 3) projectRef.current.addImportedMesh(stem, mesh.points, mesh.triangles);
-          else if (mesh.points.length >= 3) projectRef.current.addPoints(stem, mesh.points);
-          else window.alert('That PLY has no geometry.');
-        },
-        'Could not read that PLY.',
-      );
+      runPly(stem, plyMemorySource(bytes), bytes.byteLength >= PLY_STREAM_BYTES || heavyBinary(bytes));
       return;
     }
     if (classified.kind === 'obj' || classified.kind === 'stl' || classified.kind === 'gltf') {
@@ -527,6 +572,19 @@ function Shell() {
   };
 
   const read = async (file: File) => {
+    if (file.size >= PLY_STREAM_BYTES && /\.ply$/i.test(file.name)) {
+      const stem = file.name.replace(/\.[^.]+$/, '') || file.name;
+      rememberRecent(file.name);
+      runPly(
+        stem,
+        {
+          byteLength: file.size,
+          read: async (offset, length) => new Uint8Array(await file.slice(offset, Math.min(file.size, offset + length)).arrayBuffer()),
+        },
+        true,
+      );
+      return;
+    }
     if (file.size >= DXF_BULK_BYTES && /\.dxf$/i.test(file.name)) {
       const stem = file.name.replace(/\.[^.]+$/, '') || file.name;
       const task = tasks.start({ command: 'OPEN', title: `Reading DXF "${stem}"`, stages: ['Reading'], blocksInput: true });
@@ -551,6 +609,18 @@ function Shell() {
       for (const path of paths) {
         void (async () => {
           try {
+            if (/\.ply$/i.test(path)) {
+              const size = await desktopFileSize(path);
+              if (size == null) {
+                window.alert('Could not measure that PLY before opening it.');
+                return;
+              }
+              if (size >= PLY_STREAM_BYTES) {
+                rememberRecent(path);
+                openPlyRef.current(path, size);
+                return;
+              }
+            }
             if (/\.dxf$/i.test(path)) {
               const size = await desktopFileSize(path);
               if (size != null && size >= DXF_BULK_BYTES) {
@@ -652,6 +722,10 @@ function Shell() {
           const file = await desktopOpen();
           if (file?.streamDxf) {
             window.alert('That DXF is large. Open it from File > Open.');
+            return;
+          }
+          if (file?.streamPly) {
+            window.alert('That PLY is large. Open it from File > Open.');
             return;
           }
           if (file) attachDrawing(file.name, file.bytes, file.path);

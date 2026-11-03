@@ -34,7 +34,7 @@ export const FORMAT_CATALOG: FormatStatus[] = [
     extensions: '.ply',
     read: 'yes',
     write: 'yes',
-    note: 'ASCII, binary little-endian, and binary big-endian. Vertices and polygon faces. Extra vertex properties are skipped. Triangle strips are not expanded. Save and Export write ASCII so coordinates keep full precision.',
+    note: 'ASCII, binary little-endian, and binary big-endian. Vertices and polygon faces. Extra vertex properties are skipped. A dense cloud is read in parts and sampled to 200,000 vertices, with progress on the command line. Triangle strips are not expanded. Save and Export write ASCII so coordinates keep full precision.',
   },
 ];
 

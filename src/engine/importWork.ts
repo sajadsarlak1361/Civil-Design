@@ -4,7 +4,7 @@ import { readGeoTiff } from './formats/geotiff';
 import { gridToPoints, parseAsc, parseXyzGrid } from './formats/grid';
 import { readLas } from './formats/las';
 import { parseGltf, parseObj, parseStl } from './formats/mesh';
-import { parsePly } from './formats/ply';
+import { loadPly, plyMemorySource, type PlyLoad, type PlyProgress } from './formats/ply';
 import { poolAvailable, runPool } from './pool';
 import type { TaskHandle } from './tasks';
 import type { SurveyPoint, Triangle } from './types';
@@ -73,10 +73,20 @@ export async function readGeoTiffOffThread(bytes: Uint8Array, task?: TaskHandle)
 
 export type MeshKind = 'obj' | 'stl' | 'gltf';
 
-export async function readPlyOffThread(bytes: Uint8Array, task?: TaskHandle): Promise<{ points: SurveyPoint[]; triangles: Triangle[] }> {
-  if (!heavyBinary(bytes)) return parsePly(bytes);
-  const copy = bytes.slice();
-  return offThread<{ points: SurveyPoint[]; triangles: Triangle[] }>('ply', { bytes: copy }, [copy.buffer], task, 'Reading PLY');
+/**
+ * Read a PLY without copying the file into a worker.
+ * Dense clouds are sampled in parts. A full copy of a multi-hundred-megabyte
+ * cloud is what aborts the desktop shell.
+ */
+export async function readPlyOffThread(bytes: Uint8Array, task?: TaskHandle, onProgress?: (progress: PlyProgress) => void): Promise<PlyLoad> {
+  return loadPly(plyMemorySource(bytes), {
+    signal: task?.signal,
+    yield: bytes.byteLength >= HEAVY_BYTES,
+    onProgress: (progress) => {
+      task?.progress(progress.fraction);
+      onProgress?.(progress);
+    },
+  });
 }
 
 export async function readMeshOffThread(kind: MeshKind, text: string, task?: TaskHandle): Promise<{ points: SurveyPoint[]; triangles: Triangle[] }> {

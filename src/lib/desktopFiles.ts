@@ -1,5 +1,6 @@
 import type { DxfModel } from '../engine/formats/dxfDoc';
 import { DXF_BULK_BYTES, parseDxfParts } from '../engine/formats/dxfStream';
+import { loadPly, PLY_STREAM_BYTES, type PlyLoad, type PlyLoadOptions } from '../engine/formats/ply';
 import { OPEN_FILTERS, PROJECT_FILTERS, dialogPath, pathsFromDropPayload, type DialogFilter } from './openFiles';
 
 interface TauriInternals {
@@ -30,6 +31,8 @@ export interface DesktopFile {
   bytes: Uint8Array;
   /** Large ASCII DXF. `bytes` is empty; parse with `desktopReadDxf`. */
   streamDxf?: boolean;
+  /** Large PLY. `bytes` is empty; parse with `desktopReadPly`. */
+  streamPly?: boolean;
   byteLength?: number;
 }
 
@@ -85,6 +88,17 @@ export async function desktopReadDxf(path: string, byteLength: number): Promise<
   return parseDxfParts(byteLength, (offset, length) => desktopReadPart(path, offset, length));
 }
 
+/** Read a large PLY in parts so a dense cloud is not one base64 string. */
+export async function desktopReadPly(path: string, byteLength: number, options?: PlyLoadOptions): Promise<PlyLoad> {
+  return loadPly(
+    {
+      byteLength,
+      read: (offset, length) => desktopReadPart(path, offset, length),
+    },
+    options,
+  );
+}
+
 export async function desktopOpen(filters: DialogFilter[] = OPEN_FILTERS): Promise<DesktopFile | null> {
   const api = internals();
   if (!api) return null;
@@ -98,6 +112,13 @@ export async function desktopOpen(filters: DialogFilter[] = OPEN_FILTERS): Promi
     if (size != null && size >= DXF_BULK_BYTES) {
       const name = path.split(/[\\/]/).pop() || path;
       return { name, path, bytes: new Uint8Array(0), streamDxf: true, byteLength: size };
+    }
+  }
+  if (/\.ply$/i.test(path)) {
+    const size = await desktopFileSize(path);
+    if (size != null && size >= PLY_STREAM_BYTES) {
+      const name = path.split(/[\\/]/).pop() || path;
+      return { name, path, bytes: new Uint8Array(0), streamPly: true, byteLength: size };
     }
   }
   return readPath(path);

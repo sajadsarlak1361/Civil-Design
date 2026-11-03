@@ -5,7 +5,7 @@ import { readGeoTiff } from './formats/geotiff';
 import { gridToPoints, parseAsc, parseXyzGrid } from './formats/grid';
 import { readLas } from './formats/las';
 import { parseGltf, parseObj, parseStl } from './formats/mesh';
-import { parsePly } from './formats/ply';
+import { loadPly, plyMemorySource } from './formats/ply';
 import { parsePointFile, type DelimiterChoice, type FormatChoice } from './points';
 import { dedupeCoords, triangulateCoords, buildTin } from './tin';
 import type { BuildOptions } from './tin';
@@ -168,8 +168,20 @@ globalThis.addEventListener('message', (event: Event) => {
       return;
     }
     if (data.op === 'ply') {
-      const parsed = parsePly(data.bytes ?? new Uint8Array());
-      post({ id: data.id, op: 'ply', points: parsed.points, triangles: parsed.triangles });
+      void loadPly(plyMemorySource(data.bytes ?? new Uint8Array()), { yield: false })
+        .then((parsed) => {
+          post({
+            id: data.id,
+            op: 'ply',
+            points: parsed.points,
+            triangles: parsed.triangles,
+            status: parsed.status,
+            sampled: parsed.sampled,
+            vertexCount: parsed.vertexCount,
+            kept: parsed.kept,
+          });
+        })
+        .catch((error: unknown) => fail(data.id, error));
       return;
     }
     if (data.op === 'obj' || data.op === 'stl' || data.op === 'gltf') {

@@ -64,4 +64,6 @@ File → Open and File → Import → PLY read Stanford PLY into the current pro
 
 The reader accepts `ascii`, `binary_little_endian`, and `binary_big_endian` version 1.0. Vertices need `x`, `y`, and `z` (float or double, or an integer type). Other vertex properties — color, normal, intensity, extra scalars — are skipped. Faces are polygon lists and are fanned into triangles from the first vertex. A face-less file has no triangles. Triangle strips and edge elements are skipped, not meshed. Eight-byte integer properties are refused. Coordinates stay easting, northing, elevation.
 
-A PLY with faces becomes a mesh and keeps those triangles. A PLY with only vertices becomes a TIN.
+A PLY with faces becomes a mesh and keeps those triangles, when the vertex count fits in memory. A PLY with only vertices becomes a TIN.
+
+A dense vertex cloud, including a stereo-fusion cloud with positions, normals, and color and no faces, is not loaded as one mesh. Files of about 8 MB and larger are read in parts, so the desktop shell does not base64 the whole file. The command line reports progress. At most 200,000 vertices are kept, on a fixed stride through the file, and that sample is triangulated. The command line says how many vertices were in the file and how many were kept. Normals and colors stay optional and are not stored. If the cloud still cannot be stored, opening stops with a message instead of closing the program. A declared count above 500 million vertices is refused before any points are stored.
