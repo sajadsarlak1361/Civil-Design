@@ -4,11 +4,12 @@ import {
   circleDesign,
   filterPointGroup,
   horseshoeDesign,
-  parsePointFile,
   stationsInRange,
   type DesignPoint,
   type SurveyPoint,
 } from '../engine';
+import { readPointCloudFile } from '../engine/formats/cloud';
+import { POINT_CLOUD_ACCEPT } from '../lib/openFiles';
 import { useProject } from '../state/store';
 
 export function MeshCreateDialog({ onClose }: { onClose: () => void }) {
@@ -97,7 +98,7 @@ export function MeshCreateDialog({ onClose }: { onClose: () => void }) {
           <label>
             Points
             <select value={source} onChange={(event) => setSource(event.target.value)}>
-              <option value="file">Point file (XYZ, CSV)</option>
+              <option value="file">Point cloud (LAS, LAZ, E57, PLY, PCD, PTS, PTX, XYZ, CSV)</option>
               <option value="cogo">COGO points</option>
               <option value="group">Point group</option>
               <option value="drawing">Selected drawing points</option>
@@ -120,23 +121,22 @@ export function MeshCreateDialog({ onClose }: { onClose: () => void }) {
               File
               <input
                 type="file"
-                accept=".csv,.txt,.xyz,.las,.laz"
+                accept={POINT_CLOUD_ACCEPT}
                 onChange={(event) => {
                   const file = event.target.files?.[0];
                   event.target.value = '';
                   if (!file) return;
-                  const lower = file.name.toLowerCase();
-                  if (lower.endsWith('.las') || lower.endsWith('.laz')) {
-                    setFilePoints(null);
-                    setFileName(file.name);
-                    setError('LAS and LAZ are not supported. Export the scan to XYZ or CSV.');
-                    return;
-                  }
-                  void file.text().then((text) => {
-                    const parsed = parsePointFile(text);
-                    setFileName(file.name);
-                    setFilePoints(parsed.points);
-                    setError(parsed.points.length < 3 ? 'That file did not contain enough points.' : '');
+                  void file.arrayBuffer().then(async (buffer) => {
+                    try {
+                      const points = await readPointCloudFile(file.name, new Uint8Array(buffer));
+                      setFileName(file.name);
+                      setFilePoints(points);
+                      setError(points.length < 3 ? 'That file did not contain enough points.' : '');
+                    } catch (error) {
+                      setFilePoints(null);
+                      setFileName(file.name);
+                      setError(error instanceof Error ? error.message : 'Could not read that point file.');
+                    }
                   });
                 }}
               />

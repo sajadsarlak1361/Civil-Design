@@ -10,6 +10,11 @@ export const OPEN_EXTENSIONS = [
   'xyz',
   'asc',
   'las',
+  'laz',
+  'e57',
+  'pcd',
+  'pts',
+  'ptx',
   'shp',
   'tif',
   'tiff',
@@ -41,11 +46,17 @@ export const OPEN_FILTERS: DialogFilter[] = [
   { name: 'DXF', extensions: ['dxf'] },
   { name: 'Civil Design', extensions: ['fieldline', 'json'] },
   { name: 'LandXML', extensions: ['xml', 'landxml'] },
-  { name: 'Points', extensions: ['csv', 'txt', 'xyz', 'asc'] },
+  { name: 'Points', extensions: ['csv', 'txt', 'xyz', 'asc', 'pts'] },
+  { name: 'Point cloud', extensions: ['las', 'laz', 'e57', 'pcd', 'ply', 'pts', 'ptx', 'xyz'] },
   { name: 'Mesh', extensions: ['obj', 'stl', 'gltf', 'ply'] },
-  { name: 'Raster', extensions: ['tif', 'tiff', 'las', 'shp', 'png', 'jpg', 'jpeg'] },
+  { name: 'Raster', extensions: ['tif', 'tiff', 'shp', 'png', 'jpg', 'jpeg'] },
   { name: 'All files', extensions: ['*'] },
 ];
+
+/** Extensions the 3D mesh dialog reads as a point cloud. */
+export const POINT_CLOUD_EXTENSIONS = ['las', 'laz', 'e57', 'pcd', 'ply', 'pts', 'ptx', 'xyz', 'csv', 'txt'] as const;
+
+export const POINT_CLOUD_ACCEPT = POINT_CLOUD_EXTENSIONS.map((extension) => `.${extension}`).join(',');
 
 export const PROJECT_FILTERS: DialogFilter[] = [{ name: 'Civil Design', extensions: ['fieldline', 'json'] }];
 

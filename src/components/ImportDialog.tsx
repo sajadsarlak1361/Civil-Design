@@ -15,15 +15,16 @@ function previewCell(point: SurveyPoint, key: PointColumnKey): string {
 interface ImportDialogProps {
   filename: string;
   text: string;
+  initialFormat?: FormatChoice;
   onClose: () => void;
   onPoints: (name: string, points: ReturnType<typeof parsePointFile>['points']) => void;
   onLandXml: (xml: string) => void;
 }
 
-export function ImportDialog({ filename, text, onClose, onPoints, onLandXml }: ImportDialogProps) {
+export function ImportDialog({ filename, text, initialFormat = 'auto', onClose, onPoints, onLandXml }: ImportDialogProps) {
   const landXml = looksLikeLandXml(text);
   const xml = useMemo(() => (landXml ? parseLandXml(text) : null), [landXml, text]);
-  const [format, setFormat] = useState<FormatChoice>('auto');
+  const [format, setFormat] = useState<FormatChoice>(initialFormat);
   const [delimiter, setDelimiter] = useState<DelimiterChoice>('auto');
   const [name, setName] = useState(filename.replace(/\.[^.]+$/, '') || 'Surface');
   const parsed = useMemo(() => (landXml ? null : parsePointFile(text, { format, delimiter })), [delimiter, format, landXml, text]);

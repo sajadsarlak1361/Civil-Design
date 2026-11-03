@@ -120,6 +120,9 @@ function numeric(value: string): number | null {
 }
 
 export function detectFormat(rows: string[][]): PointFormat {
+  const numericRows = rows.filter((row) => row.length >= 3 && row.every((field) => numeric(field) !== null));
+  const width = numericRows[0]?.length ?? 0;
+  if ((width === 6 || width === 7) && numericRows.every((row) => row.length === width)) return 'XYZ';
   const row = rows.find((fields) => fields.filter((field) => numeric(field) !== null).length >= 3);
   const n = row?.length ?? 0;
   if (n >= 5) return 'PNEZD';
@@ -130,6 +133,9 @@ export function detectFormat(rows: string[][]): PointFormat {
 function canonicalHeader(value: string): string {
   return value.toLowerCase().replace(/[^a-z0-9]+/g, '');
 }
+
+/** Point-cloud columns that ride along with X Y Z and are not survey fields. */
+const OPTIONAL_CLOUD = new Set(['intensity', 'red', 'green', 'blue', 'rgb', 'nx', 'ny', 'nz', 'r', 'g', 'b']);
 
 const HEADER_TO_KEY: Record<string, PointColumnKey> = {
   point: 'point',
@@ -168,9 +174,10 @@ function columnsFromHeader(fields: string[]): PointColumn[] | null {
   if (fields.filter((field) => numeric(field) !== null).length >= 3) return null;
   const keys: PointColumnKey[] = [];
   for (const field of fields) {
-    const key = HEADER_TO_KEY[canonicalHeader(field)];
-    if (!key) return null;
-    keys.push(key);
+    const canon = canonicalHeader(field);
+    const key = HEADER_TO_KEY[canon];
+    if (key) keys.push(key);
+    else if (!OPTIONAL_CLOUD.has(canon)) return null;
   }
   if (!keys.includes('x') || !keys.includes('y') || !keys.includes('z')) return null;
   if (new Set(keys).size !== keys.length) return null;
@@ -189,7 +196,8 @@ function formatMatching(fields: string[], columns: PointColumn[]): PointFormat |
   if (matches.length === 0) return null;
   if (matches.includes('XYZ') && matches.includes('ENZ')) {
     const tokens = fields.map(canonicalHeader);
-    return tokens.every((token) => token === 'x' || token === 'y' || token === 'z') ? 'XYZ' : 'ENZ';
+    const namedXyz = tokens.every((token) => token === 'x' || token === 'y' || token === 'z' || OPTIONAL_CLOUD.has(token));
+    return namedXyz ? 'XYZ' : 'ENZ';
   }
   return matches[0];
 }
@@ -312,6 +320,44 @@ function scanPointFile(
     lineNo += 1;
   }
   return { points, skipped, delimiter, format, columns };
+}
+
+/**
+ * Point cloud text: X Y Z, comma or whitespace, with optional intensity and RGB.
+ * A header naming x, y, and z selects those columns. A one-number count line is skipped.
+ */
+export function parseXyzCloud(text: string): SurveyPoint[] {
+  let source = text;
+  if (source.charCodeAt(0) === 0xfeff) source = source.slice(1);
+  const delimiter = detectDelimiter(source);
+  const rows: string[][] = [];
+  for (const line of source.split(/\r?\n/)) {
+    const trimmed = line.trim();
+    if (!trimmed || isComment(trimmed)) continue;
+    rows.push(splitLine(trimmed, delimiter));
+  }
+  if (rows.length === 0) return [];
+  let start = 0;
+  let xIndex = 0;
+  let yIndex = 1;
+  let zIndex = 2;
+  const names = rows[0].map(canonicalHeader);
+  if (names.includes('x') && names.includes('y') && names.includes('z')) {
+    xIndex = names.indexOf('x');
+    yIndex = names.indexOf('y');
+    zIndex = names.indexOf('z');
+    start = 1;
+  }
+  const points: SurveyPoint[] = [];
+  for (let index = start; index < rows.length; index += 1) {
+    const row = rows[index];
+    const x = numeric(row[xIndex] ?? '');
+    const y = numeric(row[yIndex] ?? '');
+    const z = numeric(row[zIndex] ?? '');
+    if (x === null || y === null || z === null) continue;
+    points.push({ x, y, z, number: String(points.length + 1), role: 'survey' });
+  }
+  return points;
 }
 
 export function parsePointFile(

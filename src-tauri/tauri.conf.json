@@ -60,6 +60,48 @@
         "role": "Editor"
       },
       {
+        "ext": ["las"],
+        "name": "LAS point cloud",
+        "description": "LAS point cloud",
+        "role": "Editor"
+      },
+      {
+        "ext": ["laz"],
+        "name": "LAZ point cloud",
+        "description": "LASzip point cloud",
+        "role": "Editor"
+      },
+      {
+        "ext": ["e57"],
+        "name": "E57 point cloud",
+        "description": "ASTM E57 point cloud",
+        "role": "Editor"
+      },
+      {
+        "ext": ["pcd"],
+        "name": "PCD point cloud",
+        "description": "PCL PCD point cloud",
+        "role": "Editor"
+      },
+      {
+        "ext": ["pts"],
+        "name": "PTS point cloud",
+        "description": "Leica PTS point cloud",
+        "role": "Editor"
+      },
+      {
+        "ext": ["ptx"],
+        "name": "PTX point cloud",
+        "description": "Leica PTX point cloud",
+        "role": "Editor"
+      },
+      {
+        "ext": ["xyz"],
+        "name": "XYZ point cloud",
+        "description": "XYZ point cloud",
+        "role": "Editor"
+      },
+      {
         "ext": ["dwg", "dwt"],
         "name": "DWG drawing",
         "description": "DWG drawing",
