@@ -1,3 +1,4 @@
+import { surfaceToPly } from './formats/ply';
 import type { SurveyPoint, Triangle } from './types';
 
 function vertex(point: SurveyPoint): string {
@@ -65,19 +66,5 @@ export function meshToBinaryStl(points: SurveyPoint[], triangles: Triangle[]): U
 
 /** Stanford PLY, ASCII, with vertex and face elements. */
 export function meshToPly(points: SurveyPoint[], triangles: Triangle[]): string {
-  const lines = [
-    'ply',
-    'format ascii 1.0',
-    'comment Civil Design 3D mesh',
-    `element vertex ${points.length}`,
-    'property float x',
-    'property float y',
-    'property float z',
-    `element face ${triangles.length}`,
-    'property list uchar int vertex_indices',
-    'end_header',
-  ];
-  for (const point of points) lines.push(vertex(point));
-  for (const [a, b, c] of triangles) lines.push(`3 ${a} ${b} ${c}`);
-  return lines.join('\n') + '\n';
+  return surfaceToPly(points, triangles);
 }

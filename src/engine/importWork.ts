@@ -4,6 +4,7 @@ import { readGeoTiff } from './formats/geotiff';
 import { gridToPoints, parseAsc, parseXyzGrid } from './formats/grid';
 import { readLas } from './formats/las';
 import { parseGltf, parseObj, parseStl } from './formats/mesh';
+import { parsePly } from './formats/ply';
 import { poolAvailable, runPool } from './pool';
 import type { TaskHandle } from './tasks';
 import type { SurveyPoint, Triangle } from './types';
@@ -71,6 +72,12 @@ export async function readGeoTiffOffThread(bytes: Uint8Array, task?: TaskHandle)
 }
 
 export type MeshKind = 'obj' | 'stl' | 'gltf';
+
+export async function readPlyOffThread(bytes: Uint8Array, task?: TaskHandle): Promise<{ points: SurveyPoint[]; triangles: Triangle[] }> {
+  if (!heavyBinary(bytes)) return parsePly(bytes);
+  const copy = bytes.slice();
+  return offThread<{ points: SurveyPoint[]; triangles: Triangle[] }>('ply', { bytes: copy }, [copy.buffer], task, 'Reading PLY');
+}
 
 export async function readMeshOffThread(kind: MeshKind, text: string, task?: TaskHandle): Promise<{ points: SurveyPoint[]; triangles: Triangle[] }> {
   if (!heavyText(text)) {

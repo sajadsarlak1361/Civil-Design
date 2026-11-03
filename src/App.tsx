@@ -1,15 +1,16 @@
 import { useEffect, useRef, useState, useSyncExternalStore, type DragEvent, type PointerEvent as ReactPointerEvent } from 'react';
-import { contoursToDxf, generateContours, isMeshSurface, looksLikeLandXml, meshSectionCsv, meshToObj, meshToPly, meshToStl, surfaceToLandXml, trianglesToDxf, volumeReportCsv } from './engine';
+import { contoursToDxf, generateContours, isMeshSurface, looksLikeLandXml, meshSectionCsv, meshToObj, meshToStl, surfaceToLandXml, trianglesToDxf, volumeReportCsv } from './engine';
 import { parseDxf, drawingToDxf } from './engine/formats/dxfDoc';
 import { classifyFile } from './engine/formats/ingest';
 import { readImageInfo } from './engine/formats/image';
 import { surfaceToGltf, surfaceToObj, surfaceToStl } from './engine/formats/mesh';
+import { choosePlyGeometry, encodePly, surfaceToPly } from './engine/formats/ply';
 import { drawingToSvg, rgbToPdf } from './engine/formats/plot';
 import { readShp } from './engine/formats/shp';
 import { pointsToText } from './engine/points';
 import { attachXref, markNeedsReload, replaceXrefs, sampleXrefs, updateXrefs } from './engine/xref';
 import { getCpuLimit, setCpuLimit } from './engine/budget';
-import { heavyBinary, heavyText, readDemOffThread, readDxfOffThread, readGeoTiffOffThread, readLasOffThread, readMeshOffThread, readXyzGridOffThread } from './engine/importWork';
+import { heavyBinary, heavyText, readDemOffThread, readDxfOffThread, readGeoTiffOffThread, readLasOffThread, readMeshOffThread, readPlyOffThread, readXyzGridOffThread } from './engine/importWork';
 import { poolAvailable, resizePool } from './engine/pool';
 import { subscribeTasks, taskSnapshot, tasks } from './engine/tasks';
 import type { TaskHandle } from './engine/tasks';
@@ -35,10 +36,10 @@ import { Scene3D } from './components/Scene3D';
 import { SectionCanvas } from './components/SectionCanvas';
 import { MeshCreateDialog, MeshSectionDialog } from './components/MeshDialogs';
 import { APP_TITLE, COPYRIGHT, COPYRIGHT_NOTE } from './brand';
-import { downloadBytes, downloadText } from './lib/download';
+import { browserSave, downloadBytes, downloadText } from './lib/download';
 import { DXF_BULK_BYTES, parseDxfFile } from './engine/formats/dxfStream';
 import { desktopAvailable, desktopFileSize, desktopOpen, desktopReadDxf, desktopReadPath, desktopSave, desktopTakeLaunchPath, desktopWatch, onDesktopOpenPaths, onDesktopXrefChanged } from './lib/desktopFiles';
-import { OPEN_ACCEPT } from './lib/openFiles';
+import { OPEN_ACCEPT, SAVE_DIALOG_FILTERS } from './lib/openFiles';
 import { rememberRecent } from './lib/recentFiles';
 import { onUi } from './lib/uiBus';
 import { chromeMetrics, PALETTE_WIDTH } from './view/chromeLayout';
@@ -154,12 +155,32 @@ function Shell() {
             try {
               const json = JSON.stringify(current.toProjectFile(), null, 2);
               const name = `${fileSlug(current.state.name)}.fieldline`;
+              const bytesForPath = (path: string): Uint8Array => {
+                if (/\.ply$/i.test(path)) {
+                  const geometry = choosePlyGeometry(current.state.surfaces, current.state.activeId, getDrawingModel().doc.selection);
+                  if (!geometry) throw new Error('No surface to save as PLY.');
+                  return encodePly(geometry.points, geometry.triangles);
+                }
+                return new TextEncoder().encode(json);
+              };
               if (desktopAvailable()) {
-                const result = await desktopSave(name, new TextEncoder().encode(json));
+                const result = await desktopSave(name, bytesForPath, SAVE_DIALOG_FILTERS);
                 if (result === 'saved' || result === 'cancelled') {
                   task.finish();
                   return;
                 }
+              }
+              const picked = await browserSave(
+                name,
+                [
+                  { description: 'Civil Design', accept: { 'application/json': ['.fieldline', '.json'] } },
+                  { description: 'Stanford PLY', accept: { 'application/ply': ['.ply'] } },
+                ],
+                bytesForPath,
+              );
+              if (picked === 'saved' || picked === 'cancelled') {
+                task.finish();
+                return;
               }
               downloadText(`${fileSlug(current.state.name)}.fieldline.json`, json, 'application/json');
               task.finish();
@@ -184,8 +205,10 @@ function Shell() {
         if (kind === 'stl' && active && isMeshSurface(active)) {
           downloadText(`${fileSlug(active.name)}.stl`, meshToStl(active.name, active.points, active.triangles), 'model/stl');
         }
-        if (kind === 'ply' && active && isMeshSurface(active)) {
-          downloadText(`${fileSlug(active.name)}.ply`, meshToPly(active.points, active.triangles), 'model/ply');
+        if (kind === 'ply') {
+          const geometry = choosePlyGeometry(state.surfaces, state.activeId, getDrawingModel().doc.selection);
+          if (!geometry) postMessage('No surface to export.');
+          else downloadText(`${fileSlug(geometry.name)}.ply`, surfaceToPly(geometry.points, geometry.triangles), 'model/ply');
         }
         if (kind === 'sections' && state.meshSections) {
           downloadText(`${fileSlug(state.name)}-sections.csv`, meshSectionCsv(state.meshSections.sections), 'text/csv');
@@ -400,6 +423,20 @@ function Shell() {
     }
     if (classified.kind === 'geotiff') {
       withBusy(`Reading GeoTIFF "${stem}"`, heavyBinary(bytes), (task) => readGeoTiffOffThread(bytes, task), (points) => projectRef.current.addPoints(stem, points), 'Could not read that GeoTIFF.');
+      return;
+    }
+    if (classified.kind === 'ply') {
+      withBusy(
+        `Reading PLY "${stem}"`,
+        heavyBinary(bytes),
+        (task) => readPlyOffThread(bytes, task),
+        (mesh) => {
+          if (mesh.triangles.length > 0 && mesh.points.length >= 3) projectRef.current.addImportedMesh(stem, mesh.points, mesh.triangles);
+          else if (mesh.points.length >= 3) projectRef.current.addPoints(stem, mesh.points);
+          else window.alert('That PLY has no geometry.');
+        },
+        'Could not read that PLY.',
+      );
       return;
     }
     if (classified.kind === 'obj' || classified.kind === 'stl' || classified.kind === 'gltf') {
@@ -688,6 +725,11 @@ function Shell() {
       else if (request === 'export-obj') downloadText(`${slug}.obj`, surfaceToObj(active.points, active.triangles), 'model/obj');
       else if (request === 'export-stl') downloadText(`${slug}.stl`, surfaceToStl(active.points, active.triangles), 'model/stl');
       else downloadText(`${slug}.gltf`, surfaceToGltf(active.points, active.triangles), 'model/gltf+json');
+    }
+    if (request === 'export-ply') {
+      const geometry = choosePlyGeometry(current.state.surfaces, current.state.activeId, getDrawingModel().doc.selection);
+      if (!geometry) postMessage('No surface to export.');
+      else downloadText(`${fileSlug(geometry.name)}.ply`, surfaceToPly(geometry.points, geometry.triangles), 'model/ply');
     }
     if (request === 'export-volume' && !current.state.volumeResult) postMessage('No volume report yet.');
     if (request === 'export-volume' && current.state.volumeResult) {

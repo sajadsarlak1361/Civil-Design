@@ -1,6 +1,7 @@
 import { looksLikeLandXml } from '../landxml';
 import { looksLikeAsc, xyzIsGrid } from './grid';
 import { looksLikeLas, looksLikeLaz, LAZ_REASON } from './las';
+import { looksLikePly } from './ply';
 import { looksLikeShp } from './shp';
 import { readImageInfo } from './image';
 
@@ -23,6 +24,7 @@ export type IngestKind =
   | 'obj'
   | 'stl'
   | 'gltf'
+  | 'ply'
   | 'unknown';
 
 const TEXT_EXT = /\.(csv|txt|xyz|asc|xml|landxml|dxf|json|fieldline)$/i;
@@ -40,6 +42,7 @@ export function classifyFile(name: string, bytes: Uint8Array): { kind: IngestKin
   if (lower.endsWith('.obj')) return { kind: 'obj' };
   if (lower.endsWith('.stl')) return { kind: 'stl' };
   if (lower.endsWith('.gltf')) return { kind: 'gltf' };
+  if (lower.endsWith('.ply') || looksLikePly(bytes)) return { kind: 'ply' };
   if (looksLikeLaz(bytes, name)) return { kind: 'laz', reason: LAZ_REASON };
   if (looksLikeLas(bytes)) return { kind: 'las' };
   if (isTiff(bytes)) return { kind: 'geotiff' };

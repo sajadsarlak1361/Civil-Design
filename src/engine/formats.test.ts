@@ -280,5 +280,8 @@ describe('format catalog', () => {
     expect(dwg.kind).toBe('dwg');
     expect(dwg.reason).toMatch(/DXF/);
     expect(classifyFile('mesh.obj', new TextEncoder().encode('v 0 0 0\n')).kind).toBe('obj');
+    expect(classifyFile('scan.ply', new TextEncoder().encode('ply\nformat ascii 1.0\n')).kind).toBe('ply');
+    expect(FORMAT_CATALOG.find((row) => row.id === 'ply')?.read).toBe('yes');
+    expect(FORMAT_CATALOG.find((row) => row.id === 'ply')?.write).toBe('yes');
   });
 });

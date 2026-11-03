@@ -103,7 +103,11 @@ export async function desktopOpen(filters: DialogFilter[] = OPEN_FILTERS): Promi
   return readPath(path);
 }
 
-export async function desktopSave(defaultPath: string, bytes: Uint8Array, filters: DialogFilter[] = PROJECT_FILTERS): Promise<'saved' | 'cancelled' | 'failed'> {
+export async function desktopSave(
+  defaultPath: string,
+  bytes: Uint8Array | ((path: string) => Uint8Array),
+  filters: DialogFilter[] = PROJECT_FILTERS,
+): Promise<'saved' | 'cancelled' | 'failed'> {
   const api = internals();
   if (!api) return 'failed';
   const picked = await api.invoke<unknown>('plugin:dialog|save', {
@@ -115,7 +119,8 @@ export async function desktopSave(defaultPath: string, bytes: Uint8Array, filter
   });
   const path = dialogPath(picked);
   if (!path) return 'cancelled';
-  await api.invoke('write_bytes', { path, data: encode(bytes) });
+  const payload = typeof bytes === 'function' ? bytes(path) : bytes;
+  await api.invoke('write_bytes', { path, data: encode(payload) });
   return 'saved';
 }
 

@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { OPEN_ACCEPT, OPEN_EXTENSIONS, OPEN_FILTERS, dialogPath, pathsFromDropPayload, saveFilters } from './openFiles';
+import { OPEN_ACCEPT, OPEN_EXTENSIONS, OPEN_FILTERS, SAVE_DIALOG_FILTERS, dialogPath, pathsFromDropPayload, saveFilters } from './openFiles';
 
 describe('open file filters', () => {
   it('shows DXF in the default dialog filter and the browser accept list', () => {
@@ -17,6 +17,9 @@ describe('open file filters', () => {
     expect(OPEN_FILTERS.some((filter) => filter.extensions.includes('csv'))).toBe(true);
     expect(saveFilters('dxf')[0].extensions).toEqual(['dxf']);
     expect(saveFilters('dwg')[0].extensions).toEqual(['dxf']);
+    expect(OPEN_FILTERS.find((filter) => filter.name === 'Mesh')?.extensions).toContain('ply');
+    expect(SAVE_DIALOG_FILTERS[0].extensions).toEqual(['fieldline', 'json']);
+    expect(SAVE_DIALOG_FILTERS[1]).toEqual({ name: 'Stanford PLY', extensions: ['ply'] });
   });
 
   it('reads a path from a string, a file URL, and a tagged dialog result', () => {
