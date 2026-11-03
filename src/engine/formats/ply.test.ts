@@ -2,7 +2,7 @@ import { describe, expect, it } from 'vitest';
 import { FILE_EXPORT, FILE_IMPORT } from '../../components/fileMenu';
 import { meshToPly } from '../meshExport';
 import { classifyFile } from './ingest';
-import { choosePlyGeometry, encodePly, looksLikePly, parsePly, surfaceToBinaryPly, surfaceToPly } from './ply';
+import { choosePlyGeometry, encodePly, loadPly, looksLikePly, parsePly, PLY_POINT_CAP, PLY_VERTEX_REFUSE, plyMemorySource, plySamplePlan, surfaceToBinaryPly, surfaceToPly, type PlySource } from './ply';
 import type { SurveyPoint, Triangle } from '../types';
 
 const points: SurveyPoint[] = [
@@ -14,6 +14,55 @@ const triangles: Triangle[] = [[0, 1, 2]];
 
 function ascii(body: string): Uint8Array {
   return new TextEncoder().encode(body);
+}
+
+/** COLMAP-style vertex: xyz, normal, rgb. No faces. */
+function denseCloud(count: number, littleEndian = true): Uint8Array {
+  const header = [
+    'ply',
+    `format binary_${littleEndian ? 'little' : 'big'}_endian 1.0`,
+    `element vertex ${count}`,
+    'property float x',
+    'property float y',
+    'property float z',
+    'property float nx',
+    'property float ny',
+    'property float nz',
+    'property uchar red',
+    'property uchar green',
+    'property uchar blue',
+    'end_header',
+    '',
+  ].join('\n');
+  const head = new TextEncoder().encode(header);
+  const stride = 27;
+  const bytes = new Uint8Array(head.length + count * stride);
+  bytes.set(head, 0);
+  const view = new DataView(bytes.buffer);
+  for (let index = 0; index < count; index += 1) {
+    const at = head.length + index * stride;
+    view.setFloat32(at, index, littleEndian);
+    view.setFloat32(at + 4, index + 0.5, littleEndian);
+    view.setFloat32(at + 8, -index, littleEndian);
+    view.setFloat32(at + 12, 0, littleEndian);
+    view.setFloat32(at + 16, 1, littleEndian);
+    view.setFloat32(at + 20, 0, littleEndian);
+    bytes[at + 24] = 255;
+    bytes[at + 25] = 0;
+    bytes[at + 26] = 128;
+  }
+  return bytes;
+}
+
+function sliced(bytes: Uint8Array, step: number): PlySource {
+  return {
+    byteLength: bytes.byteLength,
+    read(offset, length) {
+      if (offset >= bytes.byteLength || length <= 0) return Promise.resolve(new Uint8Array(0));
+      const end = Math.min(bytes.byteLength, offset + Math.min(length, step));
+      return Promise.resolve(bytes.slice(offset, end));
+    },
+  };
 }
 
 describe('PLY', () => {
@@ -142,6 +191,95 @@ describe('PLY', () => {
     expect(choosePlyGeometry(surfaces, 'a')?.name).toBe('Ground');
     expect(choosePlyGeometry([], null)).toBeNull();
     expect(choosePlyGeometry(surfaces, 'b', ['surface:a'])).toBeNull();
+  });
+
+  it('samples a dense binary cloud in short reads and skips normals and color', async () => {
+    const count = 1_000;
+    const bytes = denseCloud(count);
+    const cap = 100;
+    const plan = plySamplePlan(count, cap);
+    const seen: number[] = [];
+    const mesh = await loadPly(sliced(bytes, 20), {
+      cap,
+      chunkBytes: 64,
+      yield: false,
+      onProgress: (progress) => seen.push(progress.fraction),
+    });
+    expect(plan).toEqual({ stride: 10, kept: 100 });
+    expect(mesh.sampled).toBe(true);
+    expect(mesh.stride).toBe(10);
+    expect(mesh.points).toHaveLength(100);
+    expect(mesh.triangles).toEqual([]);
+    expect(mesh.points[0]).toMatchObject({ x: 0, y: 0.5, z: -0 });
+    expect(mesh.points[1].x).toBeCloseTo(10);
+    expect(mesh.points[1].y).toBeCloseTo(10.5);
+    expect(mesh.points[1].z).toBeCloseTo(-10);
+    expect(mesh.points[99].x).toBeCloseTo(990);
+    expect(mesh.status).toContain(mesh.kept.toLocaleString());
+    expect(mesh.status).toContain(count.toLocaleString());
+    expect(mesh.status).toMatch(/normals and colors/);
+    expect(seen.at(-1)).toBe(1);
+    expect(seen.every((fraction, index) => index === 0 || fraction >= seen[index - 1])).toBe(true);
+    const same = await loadPly(plyMemorySource(bytes), { cap, chunkBytes: 64, yield: false });
+    expect(same.points.map((point) => point.x)).toEqual(mesh.points.map((point) => point.x));
+  });
+
+  it('samples a big-endian dense cloud when the header break is split across reads', async () => {
+    const mesh = await loadPly(sliced(denseCloud(8, false), 1), { cap: 4, chunkBytes: 13, yield: false });
+    expect(mesh.stride).toBe(2);
+    expect(mesh.points.map((point) => point.x)).toEqual([0, 2, 4, 6]);
+    expect(mesh.points.map((point) => point.y)).toEqual([0.5, 2.5, 4.5, 6.5]);
+  });
+
+  it('keeps faces when a chunked mesh fits the cap', async () => {
+    const bytes = surfaceToBinaryPly(points, triangles);
+    const mesh = await loadPly(sliced(bytes, 7), { inlineMax: 0, chunkBytes: 11, yield: false });
+    expect(mesh.sampled).toBe(false);
+    expect(mesh.points.map((point) => point.x)).toEqual([0, 1.5, 0]);
+    expect(mesh.triangles).toEqual([[0, 1, 2]]);
+    expect(mesh.status).toBe('');
+  });
+
+  it('drops faces when a meshed cloud is sampled', async () => {
+    const cloud = Array.from({ length: 30 }, (_, index) => ({ x: index, y: 1, z: 2, role: 'survey' as const }));
+    const mesh = await loadPly(sliced(surfaceToBinaryPly(cloud, [[0, 1, 2]]), 13), { cap: 10, yield: false });
+    expect(mesh.sampled).toBe(true);
+    expect(mesh.triangles).toEqual([]);
+    expect(mesh.points).toHaveLength(10);
+    expect(mesh.points[1].x).toBeCloseTo(3);
+    expect(mesh.status).toMatch(/Faces were not loaded/);
+  });
+
+  it('samples an ASCII cloud across token boundaries', async () => {
+    const lines = ['ply', 'format ascii 1.0', 'element vertex 25', 'property float x', 'property float y', 'property float z', 'property uchar red', 'end_header'];
+    for (let index = 0; index < 25; index += 1) lines.push(`${index} ${index + 1} ${index + 2} 9`);
+    const mesh = await loadPly(sliced(ascii(`${lines.join('\n')}\n`), 3), { cap: 10, chunkBytes: 5, yield: false });
+    expect(mesh.stride).toBe(3);
+    expect(mesh.points.map((point) => [point.x, point.y, point.z])).toEqual([
+      [0, 1, 2],
+      [3, 4, 5],
+      [6, 7, 8],
+      [9, 10, 11],
+      [12, 13, 14],
+      [15, 16, 17],
+      [18, 19, 20],
+      [21, 22, 23],
+      [24, 25, 26],
+    ]);
+  });
+
+  it('refuses an absurd vertex count and a short body without allocating the cloud', async () => {
+    expect(() => plySamplePlan(PLY_VERTEX_REFUSE + 1)).toThrow(/too large to open/);
+    expect(plySamplePlan(33_059_019)).toEqual({ stride: 166, kept: Math.ceil(33_059_019 / 166) });
+    expect(plySamplePlan(33_059_019).kept).toBeLessThanOrEqual(PLY_POINT_CAP);
+    const header = 'ply\nformat binary_little_endian 1.0\nelement vertex 400000000\nproperty float x\nproperty float y\nproperty float z\nend_header\n';
+    await expect(loadPly(plyMemorySource(ascii(header)), { yield: false })).rejects.toThrow(/truncated/);
+  });
+
+  it('stops when the read is cancelled', async () => {
+    const controller = new AbortController();
+    controller.abort();
+    await expect(loadPly(sliced(denseCloud(20), 16), { signal: controller.signal, cap: 5, yield: false })).rejects.toMatchObject({ name: 'AbortError' });
   });
 
   it('is listed for open, import, and export', () => {

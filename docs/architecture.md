@@ -51,7 +51,7 @@ A surface keeps its original survey points. Rebuilds triangulate from those poin
 
 | Worker | When |
 | --- | --- |
-| `src/engine/heavy.worker.ts`, pooled by `pool.ts` | TIN builds of 25,000 points or more (`surfaceWork.ts`). Also binary imports of at least 500,000 bytes and text imports of at least 750,000 characters (`importWork.ts`): LAS, GeoTIFF, DEM, PLY, OBJ, STL, glTF. |
+| `src/engine/heavy.worker.ts`, pooled by `pool.ts` | TIN builds of 25,000 points or more (`surfaceWork.ts`). Also binary imports of at least 500,000 bytes and text imports of at least 750,000 characters (`importWork.ts`): LAS, GeoTIFF, DEM, OBJ, STL, glTF. PLY is read on the page in parts (`ply.ts`): a dense cloud is sampled to 200,000 vertices instead of being copied into a worker. |
 | `src/engine/mesh.worker.ts` | Ball pivoting and mesh sections when the cloud has at least 800 points (`meshAsync.ts`). |
 | `src/engine/formats/dwg.worker.ts` | Not on the product path. Drawing interchange is DXF (`dxfDoc.ts`, `dxfStream.ts`). This worker remains for tests. |
 | `src/engine/formats/dwgWrite.worker.ts` | Not on the product path. The page does not write a binary drawing. The module is `src/engine/formats/vendor/dwgwrite.wasm`. |
@@ -62,7 +62,7 @@ The status bar reads `src/engine/tasks.ts` for the busy headline, stage, and can
 
 `src-tauri/tauri.conf.json` sets `productName` to `Civil-Design`, `mainBinaryName` to `civil-design`, the identifier `com.civildesign.app`, and the window title Civil Design. `beforeBuildCommand` is `npm run build`. The frontend dist is `../dist`. File associations use the `.fieldline` extension.
 
-`src/lib/desktopFiles.ts` calls the Tauri dialog plugin and the `read_bytes` / `write_bytes` commands when `window.__TAURI_INTERNALS__` exists. The browser build uses downloads and `<input type="file">` instead. `src-tauri` also watches an xref path.
+`src/lib/desktopFiles.ts` calls the Tauri dialog plugin and the `read_bytes` / `write_bytes` commands when `window.__TAURI_INTERNALS__` exists. Large DXF and PLY files use `read_bytes_part` instead of one base64 string. The browser build uses downloads and `<input type="file">` instead. `src-tauri` also watches an xref path.
 
 ## Offline build
 
